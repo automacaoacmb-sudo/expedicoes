@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2e7d4f">
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Recebimento de notas - Almoxarifado</title>
+<style>
+  :root {
+    --cor-primaria: #2e7d4f; --cor-primaria-escura: #205c39; --cor-fundo: #f3f6f2; --cor-cartao: #ffffff;
+    --cor-texto: #1c2620; --cor-texto-suave: #6b7a70; --cor-borda: #dbe4dc; --cor-erro: #c0392b; --cor-erro-fundo: #fdecea;
+    --cor-ok-fundo: #e6f4ea; --cor-aviso: #8a5a00; --cor-aviso-fundo: #fff4d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --cor-fundo: #10140f; --cor-cartao: #1a2118; --cor-texto: #eef2ec; --cor-texto-suave: #9fb0a4; --cor-borda: #2c362a; --cor-erro-fundo: #3a1f1c; --cor-ok-fundo: #16281c; --cor-aviso: #f3c969; --cor-aviso-fundo: #3a2f12; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--cor-fundo); color: var(--cor-texto); }
+  header { background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura)); color: #fff; padding: calc(14px + env(safe-area-inset-top)) 18px 14px; }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 3px 0 0; font-size: 13px; opacity: 0.9; }
+  main { max-width: 760px; margin: 0 auto; padding: 14px 14px 40px; }
+  .cartao { background: var(--cor-cartao); border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 12px; }
+  #aviso { padding: 11px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
+  #aviso.ok { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); }
+  #aviso.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .barra { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .progresso { font-weight: 700; }
+  .botao { border: none; background: var(--cor-primaria); color: #fff; border-radius: 10px; padding: 11px 16px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .botao:disabled { opacity: 0.6; }
+  .botao-sec { border: 1.5px solid var(--cor-primaria); background: transparent; color: var(--cor-primaria); border-radius: 10px; padding: 9px 14px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
+  .link { background: none; border: none; color: var(--cor-primaria); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--cor-borda); cursor: pointer; }
+  .item:last-child { border-bottom: none; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .titulo { font-weight: 700; font-size: 15px; }
+  .item .detalhe { font-size: 13px; color: var(--cor-texto-suave); }
+  .chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .chip.pendente { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .chip.recebido { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); }
+  .chip.nao { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 14px; }
+  dt { color: var(--cor-texto-suave); }
+  dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .docs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .docs img { width: 100%; border-radius: 10px; border: 1px solid var(--cor-borda); }
+  .docs .vazio { color: var(--cor-texto-suave); font-size: 14px; }
+  .campo { margin-bottom: 14px; }
+  .campo > label { display: block; font-size: 13px; font-weight: 700; color: var(--cor-texto-suave); margin-bottom: 6px; }
+  .campo > label.req::after { content: " *"; color: var(--cor-erro); }
+  input[type=text], input[type=date], textarea {
+    width: 100%; font-size: 16px; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--cor-borda);
+    background: var(--cor-fundo); color: var(--cor-texto); font-family: inherit;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  input:focus, textarea:focus { outline: none; border-color: var(--cor-primaria); }
+  .linha-data { display: flex; gap: 8px; }
+  .linha-data input { flex: 1; }
+  .toggle { display: flex; gap: 10px; }
+  .toggle button { flex: 1; padding: 13px 8px; border-radius: 10px; border: 1.5px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .toggle button.ativo.sim { background: var(--cor-primaria); border-color: var(--cor-primaria); color: #fff; }
+  .toggle button.ativo.nao { background: var(--cor-erro); border-color: var(--cor-erro); color: #fff; }
+  .dica { font-size: 12.5px; color: var(--cor-texto-suave); margin: 6px 0 0; }
+  .erro-form { color: var(--cor-erro); font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+  .respondida { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 14px; }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  #carregando { text-align: center; color: var(--cor-texto-suave); padding: 40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 Recebimento de notas</h1>
+  <p id="subtitulo">Almoxarifado</p>
+</header>
+
+<main>
+  <div id="aviso" hidden></div>
+  <div id="carregando">Carregando...</div>
+
+  <section class="cartao" id="telaNome" hidden>
+    <h2 style="margin-top:0;font-size:17px">Antes de começar</h2>
+    <div class="campo">
+      <label for="campoNome" class="req">Seu nome</label>
+      <input type="text" id="campoNome" autocomplete="name" placeholder="Nome de quem está conferindo">
+      <p class="dica">Fica salvo neste aparelho e vai junto com cada confirmação.</p>
+    </div>
+    <button class="botao" id="botaoNome">Continuar</button>
+  </section>
+
+  <section id="telaLista" hidden>
+    <div class="barra">
+      <span class="progresso" id="progresso"></span>
+      <button class="botao-sec" id="botaoImprimirTodas">🖨 Imprimir todas</button>
+    </div>
+    <div class="cartao" id="lista"></div>
+    <p class="dica">Toque numa nota para ver o documento e confirmar o recebimento. Você está como <b id="nomeAtual"></b> · <button class="link" id="trocarNome">trocar</button></p>
+  </section>
+
+  <section id="telaNota" hidden>
+    <div class="nav">
+      <button class="link" id="voltar">← Voltar à lista</button>
+      <span class="dica" id="posicao"></span>
+    </div>
+    <div class="cartao">
+      <h2 style="margin:0 0 10px;font-size:17px" id="tituloNota"></h2>
+      <dl id="dadosNota"></dl>
+      <div class="docs" id="docs"></div>
+      <button class="botao-sec" id="imprimirNota">🖨 Imprimir esta nota</button>
+    </div>
+    <div class="cartao" id="formResposta">
+      <div class="respondida" id="jaRespondida" hidden></div>
+      <div class="campo">
+        <label class="req">A mercadoria chegou?</label>
+        <div class="toggle">
+          <button type="button" class="sim" id="botaoSim">✓ Sim, recebi</button>
+          <button type="button" class="nao" id="botaoNao">✗ Não chegou</button>
+        </div>
+      </div>
+      <div id="camposRecebido" hidden>
+        <div class="campo">
+          <label for="campoData" class="req">Data de recebimento</label>
+          <div class="linha-data"><input type="date" id="campoData"><button type="button" class="botao-sec" id="botaoHoje">Hoje</button></div>
+        </div>
+        <div class="campo">
+          <label for="campoSc" class="req">Número da SC</label>
+          <input type="text" id="campoSc" autocomplete="off" placeholder="SC que veio com a mercadoria">
+        </div>
+        <div class="campo">
+          <label for="campoFrota" class="req">Frota</label>
+          <input type="text" id="campoFrota" autocomplete="off" placeholder="Onde vai ser usado (ex.: Trator 12)">
+        </div>
+      </div>
+      <div class="campo">
+        <label for="campoObs">Observações</label>
+        <textarea id="campoObs" placeholder="Algo diferente do esperado? Faltou item, avaria..."></textarea>
+      </div>
+      <div class="erro-form" id="erroForm" hidden></div>
+      <button class="botao" id="botaoSalvar" style="width:100%">Salvar e ir para a próxima</button>
+    </div>
+  </section>
+</main>
+
+<script src="comum.js"></script>
+<script>
+  const { criar, moeda, hojeLocal, api, ehPdf, urlDeDados, pdfParaImagens, imprimir, lsGet, lsSet } = Comum;
+  const $ = id => document.getElementById(id);
+  const parametros = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+  const codigoEnvio = parametros.get('e') || '';
+
+  let envio = null;
+  let atual = -1;
+  let situacao = '';
+  const cacheDocs = {};
+  let urlsBlob = [];
+
+  function aviso(msg, ok) { const a = $('aviso'); a.textContent = msg; a.className = ok ? 'ok' : 'erro'; a.hidden = !msg; }
+  const nome = () => lsGet('exp_nome') || '';
+
+  function mostrar(tela) {
+    ['telaNome', 'telaLista', 'telaNota'].forEach(t => { $(t).hidden = t !== tela; });
+    window.scrollTo(0, 0);
+  }
+
+  async function iniciar() {
+    if (!codigoEnvio) { $('carregando').hidden = true; aviso('Link incompleto. Peça o link de novo ao conferente.', false); return; }
+    try {
+      envio = await api('almoxEnvio', { envio: codigoEnvio });
+    } catch (e) {
+      $('carregando').hidden = true;
+      aviso(e.message, false);
+      return;
+    }
+    $('carregando').hidden = true;
+    $('subtitulo').textContent = envio.fazendas + ' · enviado em ' + envio.criadoEm;
+    if (!nome()) { mostrar('telaNome'); return; }
+    mostrarLista();
+  }
+
+  function rotuloSituacao(item) {
+    if (!item.resposta) return ['pendente', 'Aguardando você'];
+    if (item.resposta.situacao === 'Recebido') return ['recebido', '✓ Recebido ' + dataBR(item.resposta.dataRecebimento)];
+    return ['nao', '✗ Não chegou'];
+  }
+  const dataBR = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '';
+
+  function mostrarLista() {
+    $('nomeAtual').textContent = nome();
+    const lista = $('lista');
+    lista.innerHTML = '';
+    const respondidas = envio.itens.filter(i => i.resposta).length;
+    $('progresso').textContent = respondidas + ' de ' + envio.itens.length + ' nota(s) respondida(s)';
+    if (!envio.itens.length) lista.appendChild(criar('div', 'dica', 'Nenhuma nota neste envio.'));
+    envio.itens.forEach((item, i) => {
+      const linha = criar('div', 'item');
+      const info = criar('div', 'info');
+      info.appendChild(criar('div', 'titulo', 'NF/OS ' + (item.notaFiscal || '(sem número)')));
+      info.appendChild(criar('div', 'detalhe', [item.fornecedor || 'Fornecedor a confirmar', moeda(item.valor), item.fazenda].filter(Boolean).join(' · ')));
+      linha.appendChild(info);
+      const r = rotuloSituacao(item);
+      linha.appendChild(criar('span', 'chip ' + r[0], r[1]));
+      linha.onclick = () => abrirNota(i);
+      lista.appendChild(linha);
+    });
+    mostrar('telaLista');
+  }
+
+  function limparBlobs() { urlsBlob.forEach(u => URL.revokeObjectURL(u)); urlsBlob = []; }
+
+  async function documentosDe(item) {
+    if (!item.numDocs) return [];
+    if (!cacheDocs[item.id]) cacheDocs[item.id] = (await api('almoxDocs', { envio: codigoEnvio, id: item.id })).docs;
+    return cacheDocs[item.id];
+  }
+
+  function dadosDaNota(item) {
+    return [
+      ['Fazenda', item.fazenda || '—'], ['Registrada em', item.data], ['Fornecedor', item.fornecedor || '—'],
+      ['NF/OS', item.notaFiscal || '—'], ['Valor', moeda(item.valor)], ['Com nota fiscal', item.comNf || '—'],
+      ['Motorista', item.motorista || '—'], ['Obs. do envio', item.obsEnvio]
+    ];
+  }
+
+  async function abrirNota(i) {
+    atual = i;
+    const item = envio.itens[i];
+    limparBlobs();
+    aviso('', true);
+    $('tituloNota').textContent = 'NF/OS ' + (item.notaFiscal || '(sem número)');
+    $('posicao').textContent = (i + 1) + ' de ' + envio.itens.length;
+    const dl = $('dadosNota');
+    dl.innerHTML = '';
+    dadosDaNota(item).forEach(par => { if (!par[1]) return; dl.appendChild(criar('dt', '', par[0])); dl.appendChild(criar('dd', '', par[1])); });
+
+    // formulário
+    const r = item.resposta;
+    situacao = r ? r.situacao : '';
+    $('campoData').value = r && r.dataRecebimento ? r.dataRecebimento : '';
+    $('campoData').max = hojeLocal();
+    $('campoSc').value = r ? r.sc : '';
+    $('campoFrota').value = r ? r.frota : '';
+    $('campoObs').value = r ? r.obs : '';
+    $('erroForm').hidden = true;
+    $('jaRespondida').hidden = !r;
+    if (r) $('jaRespondida').textContent = 'Respondida por ' + r.por + ' em ' + r.em + '. Pode alterar e salvar de novo.';
+    atualizarSituacao();
+    const bloqueada = item.baixada;
+    ['botaoSim', 'botaoNao', 'campoData', 'campoSc', 'campoFrota', 'campoObs', 'botaoSalvar', 'botaoHoje'].forEach(id => { $(id).disabled = bloqueada; });
+    if (bloqueada) { $('jaRespondida').hidden = false; $('jaRespondida').textContent = 'Esta nota já foi baixada pelo conferente. Para mudar algo, fale com ele.'; }
+    mostrar('telaNota');
+
+    const docs = $('docs');
+    docs.innerHTML = '';
+    if (!item.numDocs) { docs.appendChild(criar('div', 'vazio', item.docsRemovidos ? 'O documento já foi arquivado.' : 'Esta nota não tem documento anexado.')); return; }
+    docs.appendChild(criar('div', 'vazio', 'Carregando documento...'));
+    try {
+      const lista = await documentosDe(item);
+      if (atual !== i) return;
+      docs.innerHTML = '';
+      lista.forEach(src => {
+        if (ehPdf(src)) {
+          // o celular não mostra PDF dentro da página: cada página vira uma imagem
+          const url = urlDeDados(src);
+          urlsBlob.push(url);
+          const lugar = criar('div', 'vazio', 'Abrindo PDF...');
+          docs.appendChild(lugar);
+          const abrir = criar('a', 'botao-sec', '📄 Abrir o PDF original');
+          abrir.href = url;
+          abrir.target = '_blank';
+          docs.appendChild(abrir);
+          pdfParaImagens(src).then(paginas => {
+            lugar.innerHTML = '';
+            lugar.className = 'docs';
+            paginas.forEach((p, k) => { const img = document.createElement('img'); img.src = p; img.alt = 'Página ' + (k + 1); lugar.appendChild(img); });
+          }, erro => { lugar.textContent = 'Não consegui mostrar o PDF aqui (' + erro.message + '). Use o botão abaixo.'; });
+        } else {
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = 'Documento da nota';
+          docs.appendChild(img);
+        }
+      });
+    } catch (e) {
+      if (atual === i) { docs.innerHTML = ''; docs.appendChild(criar('div', 'vazio', 'Não consegui carregar o documento: ' + e.message)); }
+    }
+  }
+
+  function atualizarSituacao() {
+    $('botaoSim').classList.toggle('ativo', situacao === 'Recebido');
+    $('botaoNao').classList.toggle('ativo', situacao === 'Não recebido');
+    $('camposRecebido').hidden = situacao !== 'Recebido';
+  }
+
+  function erro(msg, campo) {
+    $('erroForm').textContent = msg;
+    $('erroForm').hidden = false;
+    if (campo) $(campo).focus();
+  }
+
+  async function salvar() {
+    const item = envio.itens[atual];
+    $('erroForm').hidden = true;
+    if (!situacao) return erro('Diga se a mercadoria chegou.');
+    const dados = { envio: codigoEnvio, id: item.id, nome: nome(), situacao: situacao, obs: $('campoObs').value.trim() };
+    if (situacao === 'Recebido') {
+      dados.dataRecebimento = $('campoData').value;
+      dados.sc = $('campoSc').value.trim();
+      dados.frota = $('campoFrota').value.trim();
+      if (!dados.dataRecebimento) return erro('Informe a data de recebimento.', 'campoData');
+      if (dados.dataRecebimento > hojeLocal()) return erro('A data de recebimento não pode ser no futuro.', 'campoData');
+      if (!dados.sc) return erro('Informe o número da SC.', 'campoSc');
+      if (!dados.frota) return erro('Informe a frota.', 'campoFrota');
+    }
+    const botao = $('botaoSalvar');
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      const r = await api('almoxResponder', dados);
+      item.resposta = { situacao: situacao, dataRecebimento: dados.dataRecebimento || '', sc: dados.sc || '', frota: dados.frota || '', obs: dados.obs, por: nome(), em: r.em };
+      const proxima = envio.itens.findIndex((x, k) => k !== atual && !x.resposta && !x.baixada);
+      if (proxima === -1) { mostrarLista(); aviso('Tudo respondido. Obrigado!', true); }
+      else { await abrirNota(proxima); aviso('Salvo ✓ Próxima nota:', true); }
+    } catch (e) {
+      erro(e.message);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = 'Salvar e ir para a próxima';
+    }
+  }
+
+  async function imprimirNotas(indices, botao) {
+    const textoOriginal = botao.textContent;
+    botao.disabled = true;
+    botao.textContent = 'Preparando...';
+    try {
+      const folhas = [];
+      for (const i of indices) {
+        const item = envio.itens[i];
+        const docs = await documentosDe(item);
+        folhas.push({
+          titulo: 'NF/OS ' + (item.notaFiscal || '(sem número)') + (item.fazenda ? ' — ' + item.fazenda : ''),
+          linhas: dadosDaNota(item).concat([['Enviado ao almoxarifado em', envio.criadoEm]]),
+          documentos: docs.map((src, k) => ({ src: src, legenda: 'NF/OS ' + (item.notaFiscal || '') + ' · documento ' + (k + 1) }))
+        });
+      }
+      await imprimir(folhas);
+    } catch (e) {
+      aviso('Não consegui preparar a impressão: ' + e.message, false);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = textoOriginal;
+    }
+  }
+
+  $('botaoNome').onclick = () => {
+    const n = $('campoNome').value.trim();
+    if (n.length < 2) { $('campoNome').focus(); return; }
+    lsSet('exp_nome', n);
+    mostrarLista();
+  };
+  $('trocarNome').onclick = () => { $('campoNome').value = nome(); mostrar('telaNome'); };
+  $('voltar').onclick = () => { limparBlobs(); mostrarLista(); };
+  $('botaoSim').onclick = () => { situacao = 'Recebido'; atualizarSituacao(); };
+  $('botaoNao').onclick = () => { situacao = 'Não recebido'; atualizarSituacao(); };
+  $('botaoHoje').onclick = () => { $('campoData').value = hojeLocal(); };
+  $('botaoSalvar').onclick = salvar;
+  $('imprimirNota').onclick = () => imprimirNotas([atual], $('imprimirNota'));
+  $('botaoImprimirTodas').onclick = () => imprimirNotas(envio.itens.map((x, i) => i), $('botaoImprimirTodas'));
+
+  iniciar();
+</script>
+</body>
+</html>

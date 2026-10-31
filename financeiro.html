@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2e7d4f">
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Financeiro - Notas e processos</title>
+<style>
+  :root {
+    --cor-primaria: #2e7d4f; --cor-primaria-escura: #205c39; --cor-fundo: #f3f6f2; --cor-cartao: #ffffff;
+    --cor-texto: #1c2620; --cor-texto-suave: #6b7a70; --cor-borda: #dbe4dc; --cor-zebra: #f6f9f5;
+    --cor-erro: #c0392b; --cor-erro-fundo: #fdecea; --cor-ok-fundo: #e6f4ea; --cor-aviso: #8a5a00; --cor-aviso-fundo: #fff4d6;
+    --cor-azul: #1f5fa8; --cor-azul-fundo: #e7f0fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --cor-fundo: #10140f; --cor-cartao: #1a2118; --cor-texto: #eef2ec; --cor-texto-suave: #9fb0a4; --cor-borda: #2c362a; --cor-zebra: #1e261c; --cor-erro-fundo: #3a1f1c; --cor-ok-fundo: #16281c; --cor-aviso: #f3c969; --cor-aviso-fundo: #3a2f12; --cor-azul: #8fb9ef; --cor-azul-fundo: #182638; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--cor-fundo); color: var(--cor-texto); }
+  header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura)); color: #fff; padding: 10px 16px; }
+  header h1 { margin: 0; font-size: 17px; }
+  header .quem { font-size: 12.5px; opacity: 0.9; }
+  header .quem button { background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font: inherit; }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 12px; max-width: 1400px; width: 100%; margin: 0 auto; }
+  #aviso { flex: none; padding: 9px 12px; border-radius: 10px; font-size: 13.5px; margin-bottom: 8px; }
+  #aviso.ok { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); }
+  #aviso.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .barra { flex: none; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+  .barra input[type=search], .barra select { font: inherit; font-size: 13.5px; padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); }
+  .barra input[type=search] { min-width: 240px; }
+  .barra label { font-size: 13.5px; display: inline-flex; gap: 6px; align-items: center; }
+  .info { font-size: 12.5px; color: var(--cor-texto-suave); }
+  .botao { border: none; background: var(--cor-primaria); color: #fff; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .botao:disabled { opacity: 0.55; cursor: default; }
+  .botao-sec { border: 1.5px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .tabela-wrap { flex: 1; min-height: 120px; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 10px; overflow: auto; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+  thead th { position: sticky; top: 0; background: var(--cor-primaria); color: #fff; text-align: left; padding: 8px; white-space: nowrap; }
+  tbody td { padding: 7px 8px; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
+  tbody tr:nth-child(even) td { background: var(--cor-zebra); }
+  td.num { text-align: right; white-space: nowrap; }
+  .sub { display: block; font-size: 11.5px; color: var(--cor-texto-suave); margin-top: 2px; }
+  .sub.alerta { color: var(--cor-erro); font-weight: 700; }
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .e-aguardando { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .e-faltam { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .e-pronta { background: rgba(128,128,128,0.18); color: var(--cor-texto); }
+  .e-enviada { background: var(--cor-azul-fundo); color: var(--cor-azul); }
+  .e-confirmada { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); }
+  .e-divergencia { background: var(--cor-erro); color: #fff; }
+  .e-baixada { background: var(--cor-primaria); color: #fff; }
+  .vazio { text-align: center; color: var(--cor-texto-suave); padding: 30px; }
+  @media (max-width: 760px) {
+    thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tbody tr { border-bottom: 1px solid var(--cor-borda); padding: 6px 0; }
+    tbody td { border: none; padding: 3px 10px; }
+    td.num { text-align: left; }
+  }
+  .modal-fundo { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .modal { background: var(--cor-cartao); color: var(--cor-texto); border-radius: 14px; width: min(980px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .modal.estreita { width: min(600px, 100%); }
+  .modal-topo { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura)); color: #fff; }
+  .modal-topo h2 { margin: 0; font-size: 15px; }
+  .fechar { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; }
+  .modal-corpo { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 13.5px; }
+  dt { color: var(--cor-texto-suave); }
+  dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .secao { font-size: 12px; font-weight: 700; color: var(--cor-primaria); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; }
+  .docs { display: flex; flex-wrap: wrap; gap: 10px; }
+  .doc { width: 150px; text-align: center; font-size: 12px; color: var(--cor-texto-suave); }
+  .doc img { width: 150px; height: 190px; object-fit: cover; border-radius: 8px; border: 1px solid var(--cor-borda); display: block; margin-bottom: 4px; }
+  .doc a { display: flex; align-items: center; justify-content: center; width: 150px; height: 190px; border-radius: 8px; border: 1px solid var(--cor-borda); font-size: 40px; text-decoration: none; margin-bottom: 4px; background: var(--cor-fundo); }
+  .nota-processo { font-size: 13px; color: var(--cor-texto-suave); }
+  .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .campo label { display: block; font-size: 12.5px; font-weight: 700; color: var(--cor-texto-suave); margin-bottom: 4px; }
+  .campo.largo { grid-column: 1 / -1; }
+  .campo input, .campo select, .campo textarea { width: 100%; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); }
+  .aviso-modal { font-size: 13.5px; min-height: 18px; }
+  .aviso-modal.erro { color: var(--cor-erro); font-weight: 700; }
+  .botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .telinha { max-width: 420px; margin: 30px auto; background: var(--cor-cartao); border-radius: 14px; padding: 18px; }
+  .telinha input { width: 100%; font-size: 16px; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); margin: 8px 0 12px; }
+  @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>💰 Financeiro · notas e processos</h1>
+  <span class="quem" id="quem"></span>
+</header>
+
+<main>
+  <div id="aviso" hidden></div>
+
+  <section class="telinha" id="telaNome" hidden>
+    <h2 style="margin-top:0;font-size:17px">Antes de começar</h2>
+    <label for="campoNome"><b>Seu nome</b></label>
+    <input type="text" id="campoNome" autocomplete="name">
+    <div class="info">Fica salvo neste computador e vai junto com cada nota que você anexar.</div>
+    <p><button class="botao" id="botaoNome">Continuar</button></p>
+  </section>
+
+  <section id="telaLista" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div class="barra">
+      <input type="search" id="busca" placeholder="Buscar NF, fornecedor, fazenda, SC...">
+      <select id="filtroEtapa"><option value="">Todas as etapas</option></select>
+      <label><input type="checkbox" id="soMinhas"> Só as que eu anexei</label>
+      <span class="info" id="info"></span>
+      <span style="flex:1"></span>
+      <button class="botao" id="botaoAnexar">＋ Anexar nota que não está na lista</button>
+      <button class="botao-sec" id="botaoAtualizar">↻ Atualizar</button>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Fazenda</th><th>NF/OS</th><th>Fornecedor</th><th style="text-align:right">Valor</th><th>Etapa</th><th>Processo</th></tr></thead>
+        <tbody id="corpo"><tr><td colspan="7" class="vazio">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal-fundo" id="modalProcesso" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="procTitulo">
+    <div class="modal-topo"><h2 id="procTitulo">Processo</h2><button class="fechar" data-fechar="modalProcesso" aria-label="Fechar">✕</button></div>
+    <div class="modal-corpo">
+      <div id="procConteudo">Carregando...</div>
+      <div class="nota-processo" id="procAviso"></div>
+      <div class="botoes">
+        <button class="botao" id="botaoImprimir">🖨 Imprimir processo</button>
+        <button class="botao-sec" data-fechar="modalProcesso">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-fundo" id="modalAnexar" hidden>
+  <div class="modal estreita" role="dialog" aria-modal="true" aria-labelledby="anexarTitulo">
+    <div class="modal-topo"><h2 id="anexarTitulo">＋ Anexar nota para o conferente</h2><button class="fechar" data-fechar="modalAnexar" aria-label="Fechar">✕</button></div>
+    <div class="modal-corpo">
+      <div class="info">Procure antes na lista: se a nota já estiver lá, é só acompanhar a etapa. Se não estiver, anexe aqui: ela vai para o conferente, que confirma com o almoxarifado.</div>
+      <div class="campos">
+        <div class="campo largo"><label for="anexoArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="anexoArquivos" accept="image/*,application/pdf" multiple></div>
+        <div class="campo"><label for="anexoFazenda">Fazenda</label><select id="anexoFazenda"></select></div>
+        <div class="campo"><label for="anexoNF">NF/OS</label><input type="text" id="anexoNF" autocomplete="off"></div>
+        <div class="campo"><label for="anexoFornecedor">Fornecedor</label><input type="text" id="anexoFornecedor" autocomplete="off"></div>
+        <div class="campo"><label for="anexoValor">Valor (R$)</label><input type="text" id="anexoValor" inputmode="decimal" autocomplete="off"></div>
+        <div class="campo largo"><label for="anexoObs">O que você precisa</label><textarea id="anexoObs" rows="2" placeholder="Ex.: confirmar se chegou na fazenda antes do pagamento"></textarea></div>
+      </div>
+      <div class="aviso-modal" id="anexoAviso"></div>
+      <div class="botoes">
+        <button class="botao" id="botaoEnviarAnexo">Enviar para o conferente</button>
+        <button class="botao-sec" data-fechar="modalAnexar">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="comum.js"></script>
+<script>
+  const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet } = Comum;
+  const $ = id => document.getElementById(id);
+  const chave = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)).get('t') || '';
+  const ETAPAS = ['Aguardando leitura', 'Faltam dados', 'Pronta para enviar', 'Enviada ao almoxarifado', 'Confirmada pelo almoxarifado', 'Divergência', 'Baixada'];
+  const CLASSE = { 'Aguardando leitura': 'e-aguardando', 'Faltam dados': 'e-faltam', 'Pronta para enviar': 'e-pronta', 'Enviada ao almoxarifado': 'e-enviada', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada' };
+
+  let itens = [];
+  let fazendas = [];
+  let processo = null;
+  let urlsBlob = [];
+
+  const nome = () => lsGet('exp_nome') || '';
+  function aviso(msg, ok) { const a = $('aviso'); a.textContent = msg; a.className = ok ? 'ok' : 'erro'; a.hidden = !msg; }
+  const normalizar = t => String(t == null ? '' : t).normalize('NFD').replace(/[^\x00-\x7F]/g, '').toLowerCase();
+
+  function mostrarQuem() {
+    const q = $('quem');
+    q.innerHTML = '';
+    if (!nome()) return;
+    q.appendChild(document.createTextNode('Você: ' + nome() + ' · '));
+    const b = criar('button', '', 'trocar');
+    b.onclick = () => { $('campoNome').value = nome(); $('telaLista').hidden = true; $('telaNome').hidden = false; };
+    q.appendChild(b);
+  }
+
+  async function carregar() {
+    try {
+      const r = await api('finLista', { token: chave });
+      itens = r.itens;
+      fazendas = r.fazendas;
+      desenhar();
+    } catch (e) {
+      $('corpo').innerHTML = '';
+      const tr = criar('tr');
+      const td = criar('td', 'vazio', e.message);
+      td.colSpan = 7;
+      tr.appendChild(td);
+      $('corpo').appendChild(tr);
+    }
+  }
+
+  function textoItem(i) {
+    return [i.data, i.fazenda, i.notaFiscal, i.fornecedor, i.sc, i.etapa, i.origem, i.solicitadoPor, i.almox.frota, i.almox.por, i.obsSolicitacao].join(' ');
+  }
+
+  function desenhar() {
+    const busca = normalizar($('busca').value.trim());
+    const etapa = $('filtroEtapa').value;
+    const minhas = $('soMinhas').checked;
+    const visiveis = itens.filter(i =>
+      (!etapa || i.etapa === etapa) &&
+      (!minhas || normalizar(i.solicitadoPor) === normalizar(nome())) &&
+      (!busca || normalizar(textoItem(i)).indexOf(busca) !== -1));
+    $('info').textContent = visiveis.length + ' de ' + itens.length + ' nota(s)';
+
+    const corpo = $('corpo');
+    corpo.innerHTML = '';
+    if (!visiveis.length) {
+      const tr = criar('tr');
+      const td = criar('td', 'vazio', itens.length ? 'Nenhuma nota com esse filtro. Se a nota não existe, use "Anexar nota que não está na lista".' : 'Nenhuma nota ainda.');
+      td.colSpan = 7;
+      tr.appendChild(td);
+      corpo.appendChild(tr);
+      return;
+    }
+    visiveis.forEach(i => {
+      const tr = criar('tr');
+      tr.appendChild(criar('td', '', i.data));
+      tr.appendChild(criar('td', '', i.fazenda || '—'));
+      const nf = criar('td', '', i.notaFiscal || '—');
+      if (i.origem !== 'Expedição') nf.appendChild(criar('span', 'sub', i.origem + (i.solicitadoPor ? ' · ' + i.solicitadoPor : '')));
+      tr.appendChild(nf);
+      tr.appendChild(criar('td', '', i.fornecedor || '—'));
+      tr.appendChild(criar('td', 'num', moeda(i.valor)));
+      const tdEtapa = criar('td');
+      tdEtapa.appendChild(criar('span', 'chip ' + (CLASSE[i.etapa] || 'e-pronta'), i.etapa));
+      const a = i.almox;
+      if (a.situacao === 'Recebido') tdEtapa.appendChild(criar('span', 'sub', 'Recebido ' + a.dataRecebimento + (a.frota ? ' · Frota ' + a.frota : '') + (a.por ? ' · ' + a.por : '')));
+      else if (a.situacao) tdEtapa.appendChild(criar('span', 'sub alerta', a.situacao + (a.obs ? ' · ' + a.obs : '')));
+      else if (a.enviadoEm) tdEtapa.appendChild(criar('span', 'sub', 'com o almoxarifado desde ' + a.enviadoEm));
+      if (i.scDivergente) tdEtapa.appendChild(criar('span', 'sub alerta', 'SC informada diferente da declarada'));
+      tr.appendChild(tdEtapa);
+      const tdAcao = criar('td');
+      const pronto = i.etapa === 'Baixada';
+      const b = criar('button', pronto ? 'botao' : 'botao-sec', pronto ? '🖨 Processo' : 'Ver');
+      b.onclick = () => abrirProcesso(i);
+      tdAcao.appendChild(b);
+      if (i.impressoEm) tdAcao.appendChild(criar('span', 'sub', 'impresso ' + i.impressoEm));
+      else if (pronto && i.numPedido) tdAcao.appendChild(criar('span', 'sub', 'com pedido de compra'));
+      tr.appendChild(tdAcao);
+      corpo.appendChild(tr);
+    });
+  }
+
+  function limparBlobs() { urlsBlob.forEach(u => URL.revokeObjectURL(u)); urlsBlob = []; }
+
+  function linhasResumo(it) {
+    const a = it.almox || {};
+    const linhas = [
+      ['NF/OS', it.notaFiscal || '—'], ['Fornecedor', it.fornecedor || '—'], ['Valor', moeda(it.valor)], ['Fazenda', it.fazenda || '—'],
+      ['Registrada em', it.data], ['Origem', it.origem + (it.solicitadoPor ? ' (' + it.solicitadoPor + ')' : '')], ['Motorista', it.motorista],
+      ['N° SC (declarada)', it.sc], ['Com nota fiscal', it.comNf], ['Obs. da solicitação', it.obsSolicitacao],
+      ['Almoxarifado', a.situacao ? a.situacao + (a.dataRecebimento ? ' em ' + a.dataRecebimento : '') : (a.enviadoEm ? 'enviada em ' + a.enviadoEm + ', sem resposta' : 'ainda não enviada')]
+    ];
+    if (a.situacao) {
+      linhas.push(['SC informada pelo almoxarifado', (a.sc || '—') + (it.scDivergente ? '  (DIFERENTE da declarada)' : a.sc && it.sc ? '  (confere)' : '')]);
+      linhas.push(['Frota', a.frota], ['Obs. do almoxarifado', a.obs], ['Confirmado por', a.por + (a.em ? ' em ' + a.em : '')]);
+    }
+    linhas.push(['Etapa', it.etapa], ['Baixada em', it.dataConferencia], ['Obs. da conferência', it.obsConferencia]);
+    return linhas;
+  }
+
+  async function abrirProcesso(i) {
+    limparBlobs();
+    processo = { lista: i, item: null, nota: [], pedido: [] };
+    $('procTitulo').textContent = 'Processo · NF/OS ' + (i.notaFiscal || '(sem número)') + ' · ' + (i.fazenda || 'sem fazenda');
+    $('procConteudo').textContent = 'Carregando...';
+    $('procAviso').textContent = '';
+    $('botaoImprimir').disabled = true;
+    $('modalProcesso').hidden = false;
+    try {
+      const r = await api('finDocs', { token: chave, id: i.id, linha: i.linha });
+      if (processo.lista !== i) return;
+      processo.item = r.item;
+      processo.nota = r.nota;
+      processo.pedido = r.pedido;
+      desenharProcesso();
+    } catch (e) {
+      $('procConteudo').textContent = e.message;
+    }
+  }
+
+  function desenharProcesso() {
+    const it = processo.item;
+    const area = $('procConteudo');
+    area.innerHTML = '';
+    area.appendChild(criar('div', 'secao', 'Resumo'));
+    const dl = criar('dl');
+    linhasResumo(it).forEach(par => { if (!par[1]) return; dl.appendChild(criar('dt', '', par[0])); dl.appendChild(criar('dd', '', par[1])); });
+    area.appendChild(dl);
+
+    [['Nota fiscal / OS', processo.nota, it.fotoRemovida], ['Pedido de compra', processo.pedido, it.pedidoRemovido]].forEach(grupo => {
+      area.appendChild(criar('div', 'secao', grupo[0] + ' (' + grupo[1].length + ')'));
+      const docs = criar('div', 'docs');
+      if (!grupo[1].length) docs.appendChild(criar('div', 'nota-processo', grupo[2] ? 'Arquivado (removido do Drive).' : 'Nenhum documento.'));
+      grupo[1].forEach((src, k) => {
+        const caixa = criar('div', 'doc');
+        if (ehPdf(src)) {
+          const url = urlDeDados(src);
+          urlsBlob.push(url);
+          const a = criar('a', '', '📄');
+          a.href = url;
+          a.target = '_blank';
+          a.title = 'Abrir PDF';
+          caixa.appendChild(a);
+        } else {
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = grupo[0] + ' ' + (k + 1);
+          img.onclick = () => window.open(urlDeDados(src), '_blank');
+          caixa.appendChild(img);
+        }
+        caixa.appendChild(document.createTextNode(grupo[0] + ' ' + (k + 1)));
+        docs.appendChild(caixa);
+      });
+      area.appendChild(docs);
+    });
+
+    const pronto = it.etapa === 'Baixada';
+    $('botaoImprimir').disabled = !pronto;
+    $('procAviso').textContent = pronto
+      ? (processo.pedido.length ? '' : 'Atenção: o conferente não anexou o pedido de compra.')
+      : 'O processo fica disponível para impressão depois que o conferente der a baixa (hoje: ' + it.etapa + ').';
+  }
+
+  async function imprimirProcesso() {
+    const it = processo.item;
+    const botao = $('botaoImprimir');
+    botao.disabled = true;
+    botao.textContent = 'Preparando...';
+    try {
+      await imprimir([{
+        titulo: 'Processo de pagamento · NF/OS ' + (it.notaFiscal || '(sem número)'),
+        linhas: linhasResumo(it).concat([['Impresso por', nome() + ' em ' + new Date().toLocaleString('pt-BR')]]),
+        documentos: processo.nota.map((src, k) => ({ src: src, legenda: 'Nota fiscal / OS · ' + (k + 1) }))
+          .concat(processo.pedido.map((src, k) => ({ src: src, legenda: 'Pedido de compra · ' + (k + 1) })))
+      }]);
+      const r = await api('finMarcarImpresso', { token: chave, id: it.id, linha: it.linha });
+      processo.lista.impressoEm = r.impressoEm;
+      desenhar();
+    } catch (e) {
+      $('procAviso').textContent = 'Não consegui imprimir: ' + e.message;
+    } finally {
+      botao.disabled = false;
+      botao.textContent = '🖨 Imprimir processo';
+    }
+  }
+
+  function abrirAnexar() {
+    const sel = $('anexoFazenda');
+    sel.innerHTML = '';
+    [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Não sei'); o.value = f; sel.appendChild(o); });
+    ['anexoArquivos', 'anexoNF', 'anexoFornecedor', 'anexoValor', 'anexoObs'].forEach(id => { $(id).value = ''; });
+    $('anexoAviso').textContent = '';
+    $('anexoAviso').className = 'aviso-modal';
+    $('botaoEnviarAnexo').disabled = false;
+    $('modalAnexar').hidden = false;
+  }
+
+  async function enviarAnexo() {
+    const arquivos = $('anexoArquivos').files;
+    const msg = $('anexoAviso');
+    if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
+    const valor = $('anexoValor').value.trim();
+    const botao = $('botaoEnviarAnexo');
+    botao.disabled = true;
+    msg.className = 'aviso-modal';
+    msg.textContent = 'Enviando...';
+    try {
+      const lista = await lerArquivos(arquivos);
+      const r = await api('finEnviarNota', {
+        token: chave, nome: nome(), arquivos: lista,
+        dados: { fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
+      }, 180000);
+      $('modalAnexar').hidden = true;
+      aviso('Nota enviada ao conferente (#' + r.id + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
+      carregar();
+    } catch (e) {
+      msg.className = 'aviso-modal erro';
+      msg.textContent = e.message;
+    } finally {
+      botao.disabled = false;
+    }
+  }
+
+  function iniciar() {
+    ETAPAS.forEach(e => { const o = criar('option', '', e); o.value = e; $('filtroEtapa').appendChild(o); });
+    if (!chave) { aviso('Link incompleto. Peça o link do financeiro a quem administra a planilha.', false); return; }
+    if (!nome()) { $('telaNome').hidden = false; return; }
+    mostrarQuem();
+    $('telaLista').hidden = false;
+    carregar();
+  }
+
+  $('botaoNome').onclick = () => {
+    const n = $('campoNome').value.trim();
+    if (n.length < 2) { $('campoNome').focus(); return; }
+    lsSet('exp_nome', n);
+    $('telaNome').hidden = true;
+    mostrarQuem();
+    $('telaLista').hidden = false;
+    carregar();
+  };
+  $('busca').oninput = desenhar;
+  $('filtroEtapa').onchange = desenhar;
+  $('soMinhas').onchange = desenhar;
+  $('botaoAtualizar').onclick = carregar;
+  $('botaoAnexar').onclick = abrirAnexar;
+  $('botaoEnviarAnexo').onclick = enviarAnexo;
+  $('botaoImprimir').onclick = imprimirProcesso;
+  document.querySelectorAll('[data-fechar]').forEach(b => { b.onclick = () => { $(b.dataset.fechar).hidden = true; limparBlobs(); }; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('modalProcesso').hidden = true; $('modalAnexar').hidden = true; } });
+
+  iniciar();
+</script>
+</body>
+</html>

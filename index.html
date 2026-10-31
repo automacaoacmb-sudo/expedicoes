@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2e7d4f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Expedição">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Expedição - Cidade → Fazenda</title>
+<style>
+  :root {
+    --cor-primaria: #2e7d4f;
+    --cor-primaria-escura: #205c39;
+    --cor-fundo: #f3f6f2;
+    --cor-cartao: #ffffff;
+    --cor-texto: #1c2620;
+    --cor-texto-suave: #6b7a70;
+    --cor-borda: #dbe4dc;
+    --cor-erro: #c0392b;
+    --cor-erro-fundo: #fdecea;
+    --cor-aviso: #8a5a00;
+    --cor-aviso-fundo: #fff4d6;
+    --cor-ok-fundo: #e6f4ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cor-fundo: #10140f;
+      --cor-cartao: #1a2118;
+      --cor-texto: #eef2ec;
+      --cor-texto-suave: #9fb0a4;
+      --cor-borda: #2c362a;
+      --cor-erro-fundo: #3a1f1c;
+      --cor-aviso: #f3c969;
+      --cor-aviso-fundo: #3a2f12;
+      --cor-ok-fundo: #16281c;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura));
+    color: #fff;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 19px; font-weight: 700; }
+  header p { margin: 3px 0 0; font-size: 13px; opacity: 0.9; }
+  .pilula {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pilula.offline { background: #ffd54f; color: #4a3500; }
+
+  main { max-width: 480px; margin: 0 auto; padding: 14px 16px 30px; }
+
+  #avisoFila {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--cor-aviso-fundo);
+    color: var(--cor-aviso);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  #avisoFila.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+
+  .abas { display: flex; gap: 8px; margin-bottom: 14px; }
+  .abas button {
+    flex: 1;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cor-borda);
+    background: var(--cor-cartao);
+    color: var(--cor-texto-suave);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .abas button.ativa { background: var(--cor-primaria); border-color: var(--cor-primaria); color: #fff; }
+
+  .cartao { background: var(--cor-cartao); border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+  .campo { margin-bottom: 16px; }
+  .campo > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--cor-texto-suave); }
+  .campo > label.req::after { content: " *"; color: var(--cor-erro); }
+  .opcional { font-weight: 400; }
+  input[type=text], input[type=date], input[type=password], textarea, select {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cor-borda);
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    font-family: inherit;
+  }
+  input:disabled { color: var(--cor-texto-suave); opacity: 1; }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--cor-primaria); }
+  .invalido input, .invalido select, .invalido .toggle { border-color: var(--cor-erro); }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%236b7a70' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  .dica { font-size: 12px; color: var(--cor-texto-suave); margin: 6px 0 0; }
+
+  .toggle { display: flex; gap: 10px; border-radius: 10px; }
+  .toggle button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--cor-borda);
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .toggle button.ativo { background: var(--cor-primaria); border-color: var(--cor-primaria); color: #fff; }
+
+  .foto-botoes { display: flex; flex-direction: column; gap: 10px; }
+  .foto-botoes button {
+    padding: 15px 8px;
+    border-radius: 10px;
+    border: 1.5px dashed var(--cor-primaria);
+    background: transparent;
+    color: var(--cor-primaria);
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .foto-botoes button:disabled { opacity: 0.45; }
+  .miniaturas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .miniatura { position: relative; width: 84px; height: 84px; }
+  .miniatura img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--cor-borda); display: block; }
+  .miniatura button {
+    position: absolute; top: -8px; right: -8px;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: var(--cor-erro); color: #fff;
+    font-size: 14px; line-height: 1; cursor: pointer;
+  }
+
+  .bloco-manual {
+    margin: 4px 0 18px;
+    padding: 12px 14px 0;
+    border: 1.5px solid var(--cor-borda);
+    border-radius: 12px;
+  }
+  .bloco-manual:not([open]) { padding-bottom: 12px; }
+  .bloco-manual summary {
+    cursor: pointer;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    list-style: none;
+  }
+  .bloco-manual summary::-webkit-details-marker { display: none; }
+  .bloco-manual summary::before { content: "▸ "; }
+  .bloco-manual[open] summary::before { content: "▾ "; }
+  .bloco-manual .dica { margin: 4px 0 12px; }
+
+  #erro {
+    background: var(--cor-erro-fundo);
+    color: var(--cor-erro);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  .botao-principal {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    background: var(--cor-primaria);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .botao-principal:active { background: var(--cor-primaria-escura); }
+  .botao-principal:disabled { opacity: 0.6; }
+  .botao-sec {
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: 1.5px solid var(--cor-primaria);
+    background: transparent;
+    color: var(--cor-primaria);
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  #telaSucesso { text-align: center; padding: 44px 20px; }
+  #telaSucesso .icone {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--cor-primaria); color: #fff; font-size: 36px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  #telaSucesso h2 { margin: 0 0 6px; }
+  #telaSucesso p { color: var(--cor-texto-suave); margin: 0 0 8px; }
+  #statusUltimo { font-weight: 700; color: var(--cor-texto); margin-bottom: 22px !important; }
+
+  .secao-titulo { margin: 4px 0 8px; font-size: 12.5px; font-weight: 700; color: var(--cor-texto-suave); text-transform: uppercase; letter-spacing: 0.4px; }
+  .item { border-bottom: 1px solid var(--cor-borda); padding: 12px 0; }
+  .item:last-child { border-bottom: none; }
+  .item .topo { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .item .topo span:last-child { font-weight: 400; color: var(--cor-texto-suave); white-space: nowrap; }
+  .item .detalhe { font-size: 13px; color: var(--cor-texto-suave); }
+  .item .valor { font-weight: 700; color: var(--cor-primaria); }
+  .selo {
+    display: inline-block; margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; background: var(--cor-ok-fundo); color: var(--cor-primaria);
+  }
+  .selo.espera { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .selo.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .item .acoes { display: flex; gap: 8px; margin-top: 8px; }
+  .item .acoes button {
+    padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--cor-borda);
+    background: transparent; color: var(--cor-texto); font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .vazio { text-align: center; color: var(--cor-texto-suave); padding: 26px 0; font-size: 14px; }
+
+  #telaCodigo {
+    position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    padding: 20px; background: rgba(0,0,0,0.6);
+  }
+  #telaCodigo .cartao { width: 100%; max-width: 360px; }
+  #telaCodigo h2 { margin: 0 0 6px; font-size: 18px; }
+  #telaCodigo p { margin: 0 0 14px; font-size: 14px; color: var(--cor-texto-suave); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    max-width: 90%; padding: 11px 18px; border-radius: 12px; background: #222; color: #fff;
+    font-size: 14px; z-index: 50; text-align: center;
+  }
+  #toast.erro { background: var(--cor-erro); }
+  footer { text-align: center; font-size: 11.5px; color: var(--cor-texto-suave); padding: 0 16px 24px; }
+  footer button { background: none; border: none; color: var(--cor-primaria); font-weight: 700; font-size: 12px; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚚 Expedição</h1>
+  <p>Cidade → Fazenda</p>
+  <span class="pilula" id="pilulaRede">● Online</span>
+</header>
+
+<main>
+  <div id="avisoFila" hidden></div>
+
+  <div class="abas">
+    <button type="button" class="ativa" id="abaNovoBtn">Novo Lançamento</button>
+    <button type="button" id="abaHistoricoBtn">Histórico</button>
+  </div>
+
+  <section class="cartao" id="telaNovo">
+    <div id="erro" hidden></div>
+    <form id="form" novalidate>
+      <div class="campo" data-campo="fazenda">
+        <label for="fazenda" class="req">Fazenda</label>
+        <select id="fazenda"></select>
+      </div>
+
+      <div class="campo">
+        <label for="dataEnvio">Data de Envio</label>
+        <input type="date" id="dataEnvio" disabled>
+        <p class="dica">O lançamento sai sempre com a data de hoje (a do momento em que você registra, mesmo sem internet).</p>
+      </div>
+
+      <div class="campo" data-campo="fotos">
+        <label>Foto da Nota Fiscal / OS <span class="opcional">(até 3)</span></label>
+        <div class="foto-botoes">
+          <button type="button" id="botaoCamera">📷 Tirar foto da NF/OS</button>
+          <button type="button" id="botaoGaleria">🖼 Escolher da galeria</button>
+        </div>
+        <input type="file" id="inputCamera" accept="image/*" capture="environment" hidden>
+        <input type="file" id="inputGaleria" accept="image/*" multiple hidden>
+        <div class="miniaturas" id="miniaturas"></div>
+        <p class="dica">Com foto, basta Fazenda e Motorista: os dados da nota são lidos da foto depois.</p>
+      </div>
+
+      <div class="campo" data-campo="motorista">
+        <label for="motorista" class="req">Motorista</label>
+        <input type="text" id="motorista" placeholder="Nome do motorista" autocomplete="off">
+      </div>
+
+      <div class="campo">
+        <label for="observacao">Observações de Envio <span class="opcional">(opcional)</span></label>
+        <textarea id="observacao" placeholder="Alguma observação sobre o envio..."></textarea>
+      </div>
+
+      <details class="bloco-manual" id="blocoManual" open>
+        <summary><span id="tituloManual">Dados da nota / OS</span></summary>
+        <p class="dica" id="dicaManual"></p>
+
+        <div class="campo" data-campo="fornecedor">
+          <label for="fornecedor" id="rotFornecedor">Fornecedor</label>
+          <input type="text" id="fornecedor" placeholder="Nome do fornecedor" autocomplete="off">
+        </div>
+
+        <div class="campo" data-campo="sc">
+          <label for="sc" id="rotSc">N° SC</label>
+          <input type="text" id="sc" placeholder="Número da SC" autocomplete="off">
+        </div>
+
+        <div class="campo" data-campo="notaFiscal">
+          <label for="notaFiscal" id="rotNotaFiscal">Nota Fiscal/OS</label>
+          <input type="text" id="notaFiscal" placeholder="Número da NF ou OS" autocomplete="off">
+        </div>
+
+        <div class="campo" data-campo="valor">
+          <label for="valor" id="rotValor">Valor (R$)</label>
+          <input type="text" inputmode="decimal" id="valor" placeholder="0,00" autocomplete="off">
+        </div>
+
+        <div class="campo" data-campo="comNotaFiscal">
+          <label id="rotComNf">Foi com nota fiscal?</label>
+          <div class="toggle" id="toggleComNf">
+            <button type="button" data-valor="Sim">Sim</button>
+            <button type="button" data-valor="Não">Não</button>
+          </div>
+        </div>
+      </details>
+
+      <button type="submit" class="botao-principal" id="botaoEnviar">Registrar Expedição</button>
+    </form>
+  </section>
+
+  <section class="cartao" id="telaSucesso" hidden>
+    <div class="icone">✓</div>
+    <h2>Expedição registrada!</h2>
+    <p>Já está guardada no seu celular.</p>
+    <p id="statusUltimo"></p>
+    <button type="button" class="botao-sec" id="botaoOutra">Lançar outra expedição</button>
+  </section>
+
+  <section class="cartao" id="telaHistorico" hidden>
+    <div id="blocoFila" hidden>
+      <div class="secao-titulo">Aguardando envio</div>
+      <div id="listaFila"></div>
+      <div class="secao-titulo" style="margin-top:14px">Já enviados</div>
+    </div>
+    <div class="vazio" id="statusHistorico"></div>
+    <div id="listaHistorico"></div>
+  </section>
+</main>
+
+<footer>
+  Expedição · versão <span id="versao"></span>
+  <span id="blocoInstalar" hidden> · <button type="button" id="botaoInstalar">Instalar no celular</button></span>
+</footer>
+
+<div id="telaCodigo" hidden>
+  <div class="cartao">
+    <h2>Código de acesso</h2>
+    <p>Digite o código que a empresa passou para quem lança as expedições. Só precisa digitar uma vez neste celular.</p>
+    <form id="formCodigo">
+      <div class="campo"><input type="password" id="campoCodigo" autocomplete="off" placeholder="Código"></div>
+      <p id="erroCodigo" style="color:var(--cor-erro);font-size:13px;margin:-6px 0 10px" hidden></p>
+      <button type="submit" class="botao-principal">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="comum.js"></script>
+<script>
+/* ===================== Configuração ===================== */
+const CONFIG = {
+  API_URL: EXPEDICOES_API, // definido em comum.js (um lugar só para as três páginas)
+  VERSAO: '1.0.0',
+  FAZENDAS_PADRAO: ['Santo Antônio', 'São Paulo', 'Chapecó', 'Esteio', 'Santa Bárbara'],
+  LIMITE_FOTOS: 3,
+  FOTO_LADO_MAX: 1600,   // px do maior lado (letra miúda de nota fiscal precisa de resolução)
+  FOTO_QUALIDADE: 0.72
+};
+
+/* ===================== Utilidades ===================== */
+const $ = (s, r = document) => r.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sem espaço ou bloqueado */ } };
+
+function criar(tag, classe, texto) {
+  const e = document.createElement(tag);
+  if (classe) e.className = classe;
+  if (texto !== undefined && texto !== null) e.textContent = texto;
+  return e;
+}
+
+// Data LOCAL do celular (toISOString devolveria a data em UTC e, depois das 21h, o dia seguinte).
+function hojeLocal() {
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+const dataBR = iso => iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : (iso || '');
+const moeda = v => v === null || v === undefined || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+let toastTimer = null;
+function toast(msg, erro) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = erro ? 'erro' : '';
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 4500);
+}
+
+/* ===================== Servidor (Apps Script) ===================== */
+const codigoAcesso = () => lsGet('exp_codigo') || '';
+
+// navigator.onLine diz só se há Wi-Fi/dados; na fazenda é comum ter Wi-Fi sem internet. Por isso
+// a última tentativa de falar com o servidor também conta.
+let servidorInacessivel = false;
+const temConexao = () => navigator.onLine && !servidorInacessivel;
+function marcarConexao(ok) {
+  if (servidorInacessivel === !ok) return;
+  servidorInacessivel = !ok;
+  atualizarPilula();
+}
+
+async function api(acao, dados = {}, timeout = 60000) {
+  if (CONFIG.API_URL.indexOf('COLE_AQUI') === 0) {
+    const e = new Error('O app ainda não foi ligado à planilha (falta o endereço do servidor).');
+    e.servidor = true;
+    throw e;
+  }
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ acao: acao, codigo: codigoAcesso() }, dados)),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita pré-verificação CORS; o Apps Script lê o texto
+      redirect: 'follow',
+      signal: ctrl.signal
+    });
+    const j = await r.json();
+    marcarConexao(true);
+    if (!j.ok) {
+      const e = new Error(j.erro || 'Erro no servidor.');
+      e.servidor = true;
+      e.codigo = j.codigo || '';
+      throw e;
+    }
+    return j.dados;
+  } catch (e) {
+    if (e.servidor) {
+      if (e.codigo === 'codigo') pedirCodigo(!!codigoAcesso());
+      throw e;
+    }
+    marcarConexao(false);
+    const x = new Error(navigator.onLine ? 'Não consegui falar com o servidor.' : 'Sem internet.');
+    x.rede = true;
+    throw x;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/* ===================== Fila offline (IndexedDB) ===================== */
+const fila = (() => {
+  let dbp = null;
+  const memoria = new Map();
+  const abrir = () => dbp || (dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('expedicoes', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('fila', { keyPath: 'idApp' });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  }));
+  const tx = async (modo, fn) => {
+    const db = await abrir();
+    return new Promise((res, rej) => {
+      const t = db.transaction('fila', modo);
+      const req = fn(t.objectStore('fila'));
+      t.oncomplete = () => res(req && req.result);
+      t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    async todos() { try { return await tx('readonly', s => s.getAll()); } catch (e) { return [...memoria.values()]; } },
+    async por(v) { try { await tx('readwrite', s => s.put(v)); } catch (e) { memoria.set(v.idApp, v); } },
+    async tirar(k) { try { await tx('readwrite', s => s.delete(k)); } catch (e) { /* ok */ } memoria.delete(k); }
+  };
+})();
+
+let enviando = false;
+let enviarDeNovo = false;
+let enviandoId = null;
+let ultimoIdApp = null;
+
+async function processarFila() {
+  if (!navigator.onLine) return;
+  if (enviando) { enviarDeNovo = true; return; }
+  enviando = true;
+  let enviados = 0;
+  try {
+    for (const item of await fila.todos()) {
+      if (item.erro) continue;
+      enviandoId = item.idApp;
+      await atualizarTelas();
+      try {
+        await api('registrar', { dados: item.dados }, 120000);
+        await fila.tirar(item.idApp);
+        enviados++;
+      } catch (e) {
+        if (e.rede || e.codigo === 'codigo') break; // tenta de novo depois (sinal ou código)
+        item.erro = e.message;
+        await fila.por(item);
+        toast('Lançamento não aceito: ' + e.message, true);
+      }
+    }
+  } finally {
+    enviando = false;
+    enviandoId = null;
+    await atualizarTelas();
+    if (enviados) {
+      toast(enviados === 1 ? 'Lançamento enviado.' : enviados + ' lançamentos enviados.');
+      if (!$('#telaHistorico').hidden) renderHistorico();
+    }
+    if (enviarDeNovo) { enviarDeNovo = false; processarFila(); }
+  }
+}
+
+async function atualizarTelas() {
+  await atualizarAvisoFila();
+  await atualizarStatusUltimo();
+  if (!$('#telaHistorico').hidden) await renderFila();
+}
+
+async function atualizarAvisoFila() {
+  const itens = await fila.todos();
+  const erros = itens.filter(i => i.erro).length;
+  const pendentes = itens.length - erros;
+  const aviso = $('#avisoFila');
+  if (!itens.length) { aviso.hidden = true; return; }
+  aviso.hidden = false;
+  aviso.className = erros ? 'erro' : '';
+  const partes = [];
+  if (pendentes) partes.push(pendentes + (pendentes === 1 ? ' lançamento guardado' : ' lançamentos guardados') + (temConexao() ? ', enviando…' : ' no celular, esperando internet.'));
+  if (erros) partes.push(erros + ' não aceito(s): veja em Histórico.');
+  aviso.textContent = partes.join(' ');
+}
+
+/* ===================== Tela: Novo Lançamento ===================== */
+let comNota = '';
+let fotos = [];
+
+function atualizarDataHoje() { $('#dataEnvio').value = hojeLocal(); }
+
+function popularFazendas(lista) {
+  const sel = $('#fazenda');
+  const atual = sel.value;
+  sel.innerHTML = '';
+  const vazio = criar('option', '', 'Selecione...');
+  vazio.value = '';
+  vazio.disabled = true;
+  vazio.selected = true;
+  sel.appendChild(vazio);
+  lista.forEach(f => { const o = criar('option', '', f); o.value = f; sel.appendChild(o); });
+  if (atual && lista.indexOf(atual) !== -1) sel.value = atual;
+}
+
+async function carregarConfig() {
+  try {
+    const cfg = await api('config');
+    if (cfg.fazendas && cfg.fazendas.length) { lsSet('exp_fazendas', cfg.fazendas); popularFazendas(cfg.fazendas); }
+  } catch (e) { /* sem sinal: segue com a lista guardada */ }
+}
+
+// Com foto, só Fazenda e Motorista são obrigatórios e os dados da nota viram um bloco opcional
+// recolhido; sem foto, o bloco fica aberto e tudo nele é obrigatório (marcado com *).
+function atualizarObrigatorios() {
+  const semFoto = fotos.length === 0;
+  ['rotFornecedor', 'rotSc', 'rotNotaFiscal', 'rotValor', 'rotComNf'].forEach(id => $('#' + id).classList.toggle('req', semFoto));
+  $('#tituloManual').textContent = semFoto ? 'Dados da nota / OS' : 'Preencher à mão (opcional)';
+  $('#dicaManual').textContent = semFoto
+    ? 'Sem foto, preencha todos os campos abaixo.'
+    : 'Os dados serão lidos da foto. Preencha só se quiser adiantar: o que você digitar não é substituído.';
+  if (semFoto) $('#blocoManual').open = true;
+}
+
+function manualPreenchido() {
+  return comNota !== '' || ['fornecedor', 'sc', 'notaFiscal', 'valor'].some(id => $('#' + id).value.trim() !== '');
+}
+
+// Sem foto o bloco não pode ser recolhido (os campos são obrigatórios).
+$('#blocoManual').addEventListener('toggle', () => {
+  if (!$('#blocoManual').open && fotos.length === 0) $('#blocoManual').open = true;
+});
+
+function renderMiniaturas() {
+  const area = $('#miniaturas');
+  area.replaceChildren();
+  fotos.forEach((src, i) => {
+    const caixa = criar('div', 'miniatura');
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = 'Foto ' + (i + 1);
+    const x = criar('button', '', '×');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Remover foto ' + (i + 1));
+    x.onclick = () => { fotos.splice(i, 1); renderMiniaturas(); atualizarObrigatorios(); };
+    caixa.appendChild(img);
+    caixa.appendChild(x);
+    area.appendChild(caixa);
+  });
+  const cheio = fotos.length >= CONFIG.LIMITE_FOTOS;
+  $('#botaoCamera').disabled = cheio;
+  $('#botaoGaleria').disabled = cheio;
+}
+
+function comprimir(arquivo) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(arquivo);
+    img.onload = () => {
+      const esc = Math.min(1, CONFIG.FOTO_LADO_MAX / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * esc);
+      c.height = Math.round(img.height * esc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      let q = CONFIG.FOTO_QUALIDADE;
+      let dataUrl = c.toDataURL('image/jpeg', q);
+      while (dataUrl.length > 3.4e6 && q > 0.35) { q -= 0.12; dataUrl = c.toDataURL('image/jpeg', q); } // o servidor recusa acima de ~4 MB
+      res(dataUrl);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('imagem')); };
+    img.src = url;
+  });
+}
+
+async function adicionarFotos(arquivos) {
+  const tinhaFoto = fotos.length > 0;
+  for (const arq of arquivos) {
+    if (fotos.length >= CONFIG.LIMITE_FOTOS) { toast('No máximo ' + CONFIG.LIMITE_FOTOS + ' fotos por lançamento.'); break; }
+    try { fotos.push(await comprimir(arq)); }
+    catch (e) { toast('Não consegui abrir essa imagem.', true); }
+  }
+  renderMiniaturas();
+  atualizarObrigatorios();
+  // primeira foto: recolhe os dados da nota (a não ser que a pessoa já tenha começado a digitar)
+  if (!tinhaFoto && fotos.length && !manualPreenchido()) $('#blocoManual').open = false;
+}
+
+function numeroDe(texto) {
+  let s = String(texto || '').replace(/R\$|\s/g, '');
+  if (!s) return NaN;
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  return Number(s);
+}
+
+function lerFormulario() {
+  const v = id => $('#' + id).value.trim();
+  const valorTxt = v('valor');
+  return {
+    fazenda: $('#fazenda').value,
+    dataEnvio: hojeLocal(),
+    fornecedor: v('fornecedor'),
+    sc: v('sc'),
+    notaFiscal: v('notaFiscal'),
+    valor: valorTxt === '' ? '' : (isNaN(numeroDe(valorTxt)) ? valorTxt : String(numeroDe(valorTxt))),
+    comNotaFiscal: comNota,
+    motorista: v('motorista'),
+    observacao: v('observacao'),
+    fotos: fotos.slice()
+  };
+}
+
+// Devolve { campo, msg } do primeiro problema, na ordem em que os campos aparecem na tela.
+function validar(d) {
+  if (!d.fazenda) return { campo: 'fazenda', msg: 'Selecione a fazenda.' };
+  if (!d.motorista) return { campo: 'motorista', msg: 'Informe o motorista.' };
+  const semFoto = d.fotos.length === 0;
+  if (semFoto && !d.fornecedor) return { campo: 'fornecedor', msg: 'Informe o fornecedor (ou tire a foto da nota).' };
+  if (semFoto && !d.sc) return { campo: 'sc', msg: 'Informe o N° SC (ou tire a foto da nota).' };
+  if (semFoto && !d.notaFiscal) return { campo: 'notaFiscal', msg: 'Informe a Nota Fiscal/OS (ou tire a foto).' };
+  if (d.valor !== '' || semFoto) {
+    const n = numeroDe(d.valor);
+    if (!(n > 0)) return { campo: 'valor', msg: 'Informe um valor válido.' };
+  }
+  if (semFoto && !d.comNotaFiscal) return { campo: 'comNotaFiscal', msg: 'Informe se foi com nota fiscal.' };
+  return null;
+}
+
+function limparErros() {
+  $('#erro').hidden = true;
+  document.querySelectorAll('.invalido').forEach(c => c.classList.remove('invalido'));
+}
+
+function mostrarErro(msg, campo) {
+  const e = $('#erro');
+  e.textContent = msg;
+  e.hidden = false;
+  const bloco = document.querySelector('[data-campo="' + campo + '"]');
+  if (bloco) {
+    const recolhido = bloco.closest('details');
+    if (recolhido) recolhido.open = true;
+    bloco.classList.add('invalido');
+    bloco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function resetarFormulario() {
+  $('#form').reset();
+  fotos = [];
+  comNota = '';
+  document.querySelectorAll('#toggleComNf button').forEach(b => b.classList.remove('ativo'));
+  $('#fazenda').selectedIndex = 0;
+  renderMiniaturas();
+  atualizarObrigatorios();
+  atualizarDataHoje();
+}
+
+$('#form').addEventListener('submit', async e => {
+  e.preventDefault();
+  limparErros();
+
+  const dados = lerFormulario();
+  const problema = validar(dados);
+  if (problema) { mostrarErro(problema.msg, problema.campo); return; }
+
+  const botao = $('#botaoEnviar');
+  botao.disabled = true;
+  try {
+    const idApp = uid();
+    dados.idApp = idApp;
+    // 1º guarda no celular (é isso que garante que nada se perde); 2º tenta enviar.
+    await fila.por({ idApp: idApp, criadoEm: new Date().toISOString(), dados: dados });
+    ultimoIdApp = idApp;
+    resetarFormulario();
+    $('#telaNovo').hidden = true;
+    $('#telaSucesso').hidden = false;
+    await atualizarStatusUltimo();
+    await atualizarAvisoFila();
+    processarFila();
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+async function atualizarStatusUltimo() {
+  if ($('#telaSucesso').hidden || !ultimoIdApp) return;
+  const item = (await fila.todos()).find(i => i.idApp === ultimoIdApp);
+  let texto;
+  if (!item) texto = '✓ Enviado e registrado na planilha.';
+  else if (item.erro) texto = '⚠ Não aceito: ' + item.erro;
+  else if (enviandoId === item.idApp) texto = 'Enviando…';
+  else if (temConexao()) texto = 'Na fila, enviando em instantes…';
+  else texto = 'Sem internet: fica guardado e vai sozinho quando o sinal voltar.';
+  $('#statusUltimo').textContent = texto;
+}
+
+$('#botaoOutra').onclick = () => {
+  $('#telaSucesso').hidden = true;
+  $('#telaNovo').hidden = false;
+  window.scrollTo(0, 0);
+};
+
+document.querySelectorAll('#toggleComNf button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#toggleComNf button').forEach(x => x.classList.remove('ativo'));
+    b.classList.add('ativo');
+    comNota = b.dataset.valor;
+  };
+});
+
+$('#botaoCamera').onclick = () => $('#inputCamera').click();
+$('#botaoGaleria').onclick = () => $('#inputGaleria').click();
+['inputCamera', 'inputGaleria'].forEach(id => {
+  $('#' + id).addEventListener('change', async ev => {
+    const arquivos = Array.from(ev.target.files || []);
+    ev.target.value = ''; // permite escolher a mesma foto de novo
+    await adicionarFotos(arquivos);
+  });
+});
+
+/* ===================== Tela: Histórico ===================== */
+function mostrarAba(aba) {
+  const hist = aba === 'historico';
+  $('#abaNovoBtn').classList.toggle('ativa', !hist);
+  $('#abaHistoricoBtn').classList.toggle('ativa', hist);
+  $('#telaHistorico').hidden = !hist;
+  $('#telaSucesso').hidden = true;
+  $('#telaNovo').hidden = hist;
+  if (hist) renderHistorico();
+}
+$('#abaNovoBtn').onclick = () => mostrarAba('novo');
+$('#abaHistoricoBtn').onclick = () => mostrarAba('historico');
+
+async function renderFila() {
+  const itens = (await fila.todos()).sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm)));
+  $('#blocoFila').hidden = itens.length === 0;
+  const lista = $('#listaFila');
+  lista.replaceChildren();
+
+  itens.forEach(it => {
+    const d = it.dados;
+    const div = criar('div', 'item');
+    const topo = criar('div', 'topo');
+    topo.appendChild(criar('span', '', d.fazenda));
+    topo.appendChild(criar('span', '', dataBR(d.dataEnvio)));
+    div.appendChild(topo);
+
+    const partes = [];
+    if (d.fornecedor) partes.push(d.fornecedor);
+    if (d.sc) partes.push('SC ' + d.sc);
+    if (d.notaFiscal) partes.push('NF/OS ' + d.notaFiscal);
+    if (d.fotos.length) partes.push(d.fotos.length + (d.fotos.length === 1 ? ' foto' : ' fotos'));
+    div.appendChild(criar('div', 'detalhe', (partes.join(' · ') || 'Só com foto') + ' — Motorista: ' + d.motorista));
+
+    let selo;
+    if (it.erro) selo = criar('span', 'selo erro', '⚠ Não aceito: ' + it.erro);
+    else if (enviandoId === it.idApp) selo = criar('span', 'selo espera', 'Enviando…');
+    else selo = criar('span', 'selo espera', temConexao() ? 'Na fila' : 'Esperando internet');
+    div.appendChild(selo);
+
+    if (it.erro) {
+      const acoes = criar('div', 'acoes');
+      const de_novo = criar('button', '', 'Tentar de novo');
+      de_novo.onclick = async () => { it.erro = ''; await fila.por(it); await atualizarTelas(); processarFila(); };
+      const descartar = criar('button', '', 'Descartar');
+      descartar.onclick = async () => {
+        if (!confirm('Descartar este lançamento? Ele não será enviado.')) return;
+        await fila.tirar(it.idApp);
+        await atualizarTelas();
+      };
+      acoes.appendChild(de_novo);
+      acoes.appendChild(descartar);
+      div.appendChild(acoes);
+    }
+    lista.appendChild(div);
+  });
+}
+
+function seloLeitura(i) {
+  if (i.leitura === 'Aguardando') return criar('span', 'selo espera', '⏳ foto aguardando leitura');
+  if (i.leitura === 'Lida') return criar('span', 'selo', '🤖 dados lidos da foto');
+  if (i.leitura === 'Não lida') return criar('span', 'selo erro', '⚠ foto não pôde ser lida');
+  return null;
+}
+
+function renderServidor(lista, ehCache) {
+  const area = $('#listaHistorico');
+  area.replaceChildren();
+  $('#statusHistorico').textContent = lista.length
+    ? (ehCache ? 'Mostrando o último histórico baixado (sem conexão agora).' : '')
+    : 'Nenhum lançamento ainda.';
+  $('#statusHistorico').hidden = !$('#statusHistorico').textContent;
+
+  lista.forEach(i => {
+    const div = criar('div', 'item');
+    const topo = criar('div', 'topo');
+    topo.appendChild(criar('span', '', i.fazenda));
+    topo.appendChild(criar('span', '', i.data));
+    div.appendChild(topo);
+
+    const partes = [i.fornecedor || '—'];
+    if (i.sc) partes.push('SC ' + i.sc);
+    if (i.notaFiscal) partes.push('NF/OS ' + i.notaFiscal);
+    div.appendChild(criar('div', 'detalhe', partes.join(' · ')));
+
+    const linha = criar('div', 'detalhe');
+    linha.appendChild(document.createTextNode('Motorista: ' + i.motorista + ' · '));
+    linha.appendChild(criar('span', 'valor', moeda(i.valor)));
+    div.appendChild(linha);
+
+    const selo = seloLeitura(i);
+    if (selo) div.appendChild(selo);
+    area.appendChild(div);
+  });
+}
+
+async function renderHistorico() {
+  await renderFila();
+  const guardado = lsGet('exp_hist');
+  if (guardado) renderServidor(guardado, false);
+  else { $('#listaHistorico').replaceChildren(); $('#statusHistorico').textContent = 'Carregando...'; $('#statusHistorico').hidden = false; }
+
+  if (!navigator.onLine) { if (guardado) renderServidor(guardado, true); else $('#statusHistorico').textContent = 'Sem internet e nada guardado ainda.'; return; }
+  try {
+    const lista = await api('historico');
+    lsSet('exp_hist', lista);
+    renderServidor(lista, false);
+  } catch (e) {
+    if (guardado) renderServidor(guardado, true);
+    else { $('#statusHistorico').textContent = e.message; $('#statusHistorico').hidden = false; }
+  }
+}
+
+/* ===================== Código de acesso ===================== */
+function pedirCodigo(errado) {
+  $('#erroCodigo').hidden = !errado;
+  $('#erroCodigo').textContent = 'Código incorreto. Confira com quem administra a planilha.';
+  $('#telaCodigo').hidden = false;
+  setTimeout(() => $('#campoCodigo').focus(), 50);
+}
+
+$('#formCodigo').addEventListener('submit', e => {
+  e.preventDefault();
+  const codigo = $('#campoCodigo').value.trim();
+  if (!codigo) return;
+  lsSet('exp_codigo', codigo);
+  $('#campoCodigo').value = '';
+  $('#telaCodigo').hidden = true;
+  carregarConfig();
+  processarFila();
+  if (!$('#telaHistorico').hidden) renderHistorico();
+});
+
+/* ===================== Rede, instalação e arranque ===================== */
+function atualizarPilula() {
+  const on = temConexao();
+  const p = $('#pilulaRede');
+  p.textContent = on ? '● Online' : '● Sem internet — pode lançar, envia depois';
+  p.classList.toggle('offline', !on);
+}
+
+function atualizarRede() {
+  if (!navigator.onLine) servidorInacessivel = false; // volta a testar o servidor quando o sinal voltar
+  atualizarPilula();
+  if (navigator.onLine) { processarFila(); carregarConfig(); }
+  atualizarTelas();
+}
+window.addEventListener('online', atualizarRede);
+window.addEventListener('offline', atualizarRede);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { atualizarDataHoje(); if (navigator.onLine) processarFila(); }
+});
+setInterval(() => { if (navigator.onLine) processarFila(); }, 60000);
+
+let pedidoInstalar = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  pedidoInstalar = e;
+  $('#blocoInstalar').hidden = false;
+});
+$('#botaoInstalar').onclick = async () => {
+  if (!pedidoInstalar) return;
+  pedidoInstalar.prompt();
+  await pedidoInstalar.userChoice;
+  pedidoInstalar = null;
+  $('#blocoInstalar').hidden = true;
+};
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* sem modo offline do app, mas o resto funciona */ }));
+}
+
+$('#versao').textContent = CONFIG.VERSAO;
+popularFazendas(lsGet('exp_fazendas') || CONFIG.FAZENDAS_PADRAO);
+atualizarDataHoje();
+renderMiniaturas();
+atualizarObrigatorios();
+atualizarRede();
+atualizarAvisoFila();
+</script>
+</body>
+</html>
