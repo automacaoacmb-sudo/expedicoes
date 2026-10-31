@@ -1,7 +1,7 @@
 /* Comum às páginas do sistema de expedições (app do celular, almoxarifado e financeiro). */
 
 // Endereço do servidor (Apps Script da planilha), o link /exec da implantação. Mudou? Troque só aqui.
-const EXPEDICOES_API = 'https://script.google.com/macros/s/AKfycbwBmgzl3VKmWN45LPiu8wMumbXVXU7prY-F-OKulAr7N5PtLigjcgH8ZCJat839aWsocA/exec';
+const EXPEDICOES_API = 'https://script.google.com/macros/s/AKfycbxONXzVt2YKN_v0b6ady-KVwHLqbAvjHieNv6nC8t4iuyNcT68UX2nd4Vp1aJgW5SnUWg/exec';
 
 const Comum = (() => {
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
