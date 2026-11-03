@@ -45,6 +45,9 @@
   td.num { text-align: right; white-space: nowrap; }
   .sub { display: block; font-size: 11.5px; color: var(--cor-texto-suave); margin-top: 2px; }
   .sub.alerta { color: var(--cor-erro); font-weight: 700; }
+  .sub.urgente { color: #c2410c; font-weight: 700; }
+  .botao-urgencia { display: block; margin-top: 4px; border: none; background: none; color: #c2410c; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }
+  .botao-urgencia:disabled { opacity: 0.5; }
   .chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
   .e-aguardando { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
   .e-faltam { background: var(--cor-erro-fundo); color: var(--cor-erro); }
@@ -166,8 +169,8 @@
   const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet } = Comum;
   const $ = id => document.getElementById(id);
   const chave = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)).get('t') || '';
-  const ETAPAS = ['Aguardando leitura', 'Faltam dados', 'Pronta para enviar', 'Enviada ao almoxarifado', 'Confirmada pelo almoxarifado', 'Divergência', 'Baixada'];
-  const CLASSE = { 'Aguardando leitura': 'e-aguardando', 'Faltam dados': 'e-faltam', 'Pronta para enviar': 'e-pronta', 'Enviada ao almoxarifado': 'e-enviada', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada' };
+  const ETAPAS = ['Nota solicitada', 'Aguardando leitura', 'Faltam dados', 'Aguardando almoxarifado', 'Fazenda errada', 'Confirmada pelo almoxarifado', 'Divergência', 'Baixada'];
+  const CLASSE = { 'Nota solicitada': 'e-faltam', 'Aguardando leitura': 'e-aguardando', 'Faltam dados': 'e-faltam', 'Aguardando almoxarifado': 'e-enviada', 'Fazenda errada': 'e-aguardando', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada' };
 
   let itens = [];
   let fazendas = [];
@@ -242,19 +245,43 @@
       const a = i.almox;
       if (a.situacao === 'Recebido') tdEtapa.appendChild(criar('span', 'sub', 'Recebido ' + a.dataRecebimento + (a.frota ? ' · Frota ' + a.frota : '') + (a.por ? ' · ' + a.por : '')));
       else if (a.situacao) tdEtapa.appendChild(criar('span', 'sub alerta', a.situacao + (a.obs ? ' · ' + a.obs : '')));
-      else if (a.enviadoEm) tdEtapa.appendChild(criar('span', 'sub', 'com o almoxarifado desde ' + a.enviadoEm));
       if (i.scDivergente) tdEtapa.appendChild(criar('span', 'sub alerta', 'SC informada diferente da declarada'));
+      if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '🔥 Urgente: ' + i.urgencia));
       tr.appendChild(tdEtapa);
       const tdAcao = criar('td');
       const pronto = i.etapa === 'Baixada';
       const b = criar('button', pronto ? 'botao' : 'botao-sec', pronto ? '🖨 Processo' : 'Ver');
       b.onclick = () => abrirProcesso(i);
       tdAcao.appendChild(b);
+      if (!pronto) {
+        const u = criar('button', 'botao-urgencia', i.urgencia ? 'Tirar urgência' : '🔥 Pedir urgência');
+        u.title = i.urgencia ? 'Tirar o destaque de urgência' : 'Destaca a nota para o conferente e para o almoxarifado';
+        u.onclick = () => alternarUrgencia(i, u);
+        tdAcao.appendChild(u);
+      }
       if (i.impressoEm) tdAcao.appendChild(criar('span', 'sub', 'impresso ' + i.impressoEm));
       else if (pronto && i.numPedido) tdAcao.appendChild(criar('span', 'sub', 'com pedido de compra'));
       tr.appendChild(tdAcao);
       corpo.appendChild(tr);
     });
+  }
+
+  async function alternarUrgencia(i, botao) {
+    let motivo = '';
+    if (!i.urgencia) {
+      motivo = window.prompt('Por que é urgente? (opcional, ex.: vence amanhã)', '');
+      if (motivo === null) return;
+    }
+    botao.disabled = true;
+    try {
+      const r = await api('finUrgencia', { token: chave, id: i.id, linha: i.linha, nome: nome(), motivo: motivo, cancelar: !!i.urgencia });
+      i.urgencia = r.urgencia;
+      aviso(r.urgencia ? 'Urgência marcada: o conferente e o almoxarifado veem a nota em destaque.' : 'Urgência retirada.', true);
+      desenhar();
+    } catch (e) {
+      aviso(e.message, false);
+      botao.disabled = false;
+    }
   }
 
   function limparBlobs() { urlsBlob.forEach(u => URL.revokeObjectURL(u)); urlsBlob = []; }
@@ -265,7 +292,8 @@
       ['NF/OS', it.notaFiscal || '—'], ['Fornecedor', it.fornecedor || '—'], ['Valor', moeda(it.valor)], ['Fazenda', it.fazenda || '—'],
       ['Registrada em', it.data], ['Origem', it.origem + (it.solicitadoPor ? ' (' + it.solicitadoPor + ')' : '')], ['Motorista', it.motorista],
       ['N° SC (declarada)', it.sc], ['Com nota fiscal', it.comNf], ['Obs. da solicitação', it.obsSolicitacao],
-      ['Almoxarifado', a.situacao ? a.situacao + (a.dataRecebimento ? ' em ' + a.dataRecebimento : '') : (a.enviadoEm ? 'enviada em ' + a.enviadoEm + ', sem resposta' : 'ainda não enviada')]
+      ['Almoxarifado', a.situacao ? a.situacao + (a.dataRecebimento ? ' em ' + a.dataRecebimento : '') : 'sem resposta ainda'],
+      ['Urgência', it.urgencia]
     ];
     if (a.situacao) {
       linhas.push(['SC informada pelo almoxarifado', (a.sc || '—') + (it.scDivergente ? '  (DIFERENTE da declarada)' : a.sc && it.sc ? '  (confere)' : '')]);
@@ -338,6 +366,13 @@
       : 'O processo fica disponível para impressão depois que o conferente der a baixa (hoje: ' + it.etapa + ').';
   }
 
+  // carimbo do recebimento impresso por cima da nota (o arquivo original fica limpo)
+  function carimboDe(it) {
+    const a = it.almox || {};
+    if (a.situacao !== 'Recebido') return null;
+    return ['RECEBIDO · ' + (it.fazenda || ''), a.dataRecebimento, a.sc ? 'SC ' + a.sc : '', a.frota ? 'Frota ' + a.frota : '', a.por ? 'por ' + a.por : ''];
+  }
+
   async function imprimirProcesso() {
     const it = processo.item;
     const botao = $('botaoImprimir');
@@ -347,7 +382,7 @@
       await imprimir([{
         titulo: 'Processo de pagamento · NF/OS ' + (it.notaFiscal || '(sem número)'),
         linhas: linhasResumo(it).concat([['Impresso por', nome() + ' em ' + new Date().toLocaleString('pt-BR')]]),
-        documentos: processo.nota.map((src, k) => ({ src: src, legenda: 'Nota fiscal / OS · ' + (k + 1) }))
+        documentos: processo.nota.map((src, k) => ({ src: src, legenda: 'Nota fiscal / OS · ' + (k + 1), carimbo: carimboDe(it) }))
           .concat(processo.pedido.map((src, k) => ({ src: src, legenda: 'Pedido de compra · ' + (k + 1) })))
       }]);
       const r = await api('finMarcarImpresso', { token: chave, id: it.id, linha: it.linha });
