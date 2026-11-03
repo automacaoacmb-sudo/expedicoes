@@ -86,6 +86,12 @@
   #avisoFila.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
 
   .abas { display: flex; gap: 8px; margin-bottom: 14px; }
+  .quem-lanca { margin: 0 0 10px; font-size: 13px; color: var(--cor-texto-suave); text-align: center; }
+  .quem-lanca button { background: none; border: none; color: var(--cor-primaria); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0; }
+  #pedirNome { border: none; border-radius: 16px; padding: 20px; max-width: 360px; width: calc(100% - 32px); background: var(--cor-cartao); color: var(--cor-texto); }
+  #pedirNome::backdrop { background: rgba(0,0,0,0.5); }
+  #pedirNome h3 { margin: 0 0 8px; font-size: 18px; }
+  #pedirNome p { margin: 0 0 14px; color: var(--cor-texto-suave); font-size: 14.5px; }
   .abas button {
     flex: 1;
     padding: 11px;
@@ -285,6 +291,8 @@
 <main>
   <div id="avisoFila" hidden></div>
 
+  <p class="quem-lanca" id="quemLanca"></p>
+
   <div class="abas">
     <button type="button" class="ativa" id="abaNovoBtn">Novo Lançamento</button>
     <button type="button" id="abaHistoricoBtn">Histórico</button>
@@ -409,6 +417,15 @@
   <button type="button" class="botao-sec" id="avisoScSeguir">Registrar sem SC</button>
 </dialog>
 
+<dialog id="pedirNome">
+  <h3>Quem está lançando?</h3>
+  <p>Seu nome fica salvo neste celular e vai junto com cada lançamento, para o conferente saber quem enviou.</p>
+  <form id="formNome">
+    <div class="campo"><input type="text" id="campoNome" autocomplete="name" placeholder="Seu nome"></div>
+    <button type="submit" class="botao-principal">Continuar</button>
+  </form>
+</dialog>
+
 <dialog id="jaLancada">
   <h3>Essa nota já foi lançada</h3>
   <div class="resumo" id="jaLancadaResumo"></div>
@@ -449,7 +466,7 @@
 /* ===================== Configuração ===================== */
 const CONFIG = {
   API_URL: EXPEDICOES_API, // definido em comum.js (um lugar só para as três páginas)
-  VERSAO: '1.2.0',
+  VERSAO: '1.2.1',
   FAZENDAS_PADRAO: ['Santo Antônio', 'São Paulo', 'Chapecó', 'Esteio', 'Santa Bárbara'],
   LIMITE_FOTOS: 3,
   FOTO_LADO_MAX: 1600,   // px do maior lado (letra miúda de nota fiscal precisa de resolução)
@@ -752,6 +769,7 @@ function lerFormulario() {
     comNotaFiscal: comNota,
     motorista: v('motorista'),
     observacao: v('observacao'),
+    lancadoPor: nomeLanca(),
     fotos: fotos.slice()
   };
 }
@@ -816,6 +834,7 @@ function perguntarSemSc() {
 $('#form').addEventListener('submit', async e => {
   e.preventDefault();
   limparErros();
+  if (!nomeLanca() && !(await pedirNome())) { mostrarErro('Diga quem está lançando (seu nome) para registrar.', 'motorista'); return; }
 
   const dados = lerFormulario();
   const problema = validar(dados);
@@ -978,7 +997,7 @@ function renderServidor(lista, ehCache) {
     div.appendChild(criar('div', 'detalhe', partes.join(' · ')));
 
     const linha = criar('div', 'detalhe');
-    linha.appendChild(document.createTextNode('Motorista: ' + i.motorista + ' · '));
+    linha.appendChild(document.createTextNode('Motorista: ' + i.motorista + (i.lancadoPor ? ' · lançado por ' + i.lancadoPor : '') + ' · '));
     linha.appendChild(criar('span', 'valor', moeda(i.valor)));
     div.appendChild(linha);
 
@@ -1061,7 +1080,7 @@ async function enviarCompletar() {
   botao.disabled = true;
   botao.textContent = 'Salvando...';
   try {
-    const r = await api('completar', { id: completarItem.id, linha: completarItem.linha, dados: dados }, 120000);
+    const r = await api('completar', { id: completarItem.id, linha: completarItem.linha, lancadoPor: nomeLanca(), dados: dados }, 120000);
     toast('✓ Lançamento #' + r.id + ' completado' + (r.feito && r.feito.length ? ': ' + r.feito.join(', ') : '') + '.');
     fecharCompletar(true);
     atualizarHistoricoGuardado();
@@ -1089,6 +1108,43 @@ $('#completarGaleria').onclick = () => $('#completarInputGaleria').click();
     desenharFotosCompletar();
   });
 });
+
+/* ===================== Quem está lançando (motorista, assistente...) ===================== */
+const nomeLanca = () => lsGet('exp_nome_lanca') || '';
+
+function mostrarQuemLanca() {
+  const p = $('#quemLanca');
+  p.replaceChildren();
+  if (!nomeLanca()) return;
+  p.appendChild(document.createTextNode('Lançando como '));
+  p.appendChild(criar('b', '', nomeLanca()));
+  p.appendChild(document.createTextNode(' · '));
+  const b = criar('button', '', 'trocar');
+  b.type = 'button';
+  b.onclick = () => pedirNome();
+  p.appendChild(b);
+}
+
+// Pergunta o nome (fica salvo no celular). Resolve com o nome, ou '' se a pessoa fechou sem digitar.
+function pedirNome() {
+  const d = $('#pedirNome');
+  $('#campoNome').value = nomeLanca();
+  return new Promise(res => {
+    $('#formNome').onsubmit = e => {
+      e.preventDefault();
+      const n = $('#campoNome').value.trim();
+      if (n.length < 2) { $('#campoNome').focus(); return; }
+      lsSet('exp_nome_lanca', n);
+      mostrarQuemLanca();
+      d.onclose = null;
+      d.close();
+      res(n);
+    };
+    d.onclose = () => res(nomeLanca());
+    d.showModal();
+    setTimeout(() => $('#campoNome').focus(), 50);
+  });
+}
 
 /* ===================== Aviso: essa nota já foi lançada ===================== */
 const digitosNf = v => String(v || '').replace(/\D/g, '').replace(/^0+/, '');
@@ -1207,6 +1263,8 @@ atualizarObrigatorios();
 atualizarRede();
 atualizarAvisoFila();
 atualizarHistoricoGuardado();
+mostrarQuemLanca();
+if (!nomeLanca() && $('#telaCodigo').hidden) pedirNome();
 </script>
 </body>
 </html>
