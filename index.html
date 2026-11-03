@@ -263,12 +263,15 @@
   #toast.erro { background: var(--cor-erro); }
   footer { text-align: center; font-size: 11.5px; color: var(--cor-texto-suave); padding: 0 16px 24px; }
   footer button { background: none; border: none; color: var(--cor-primaria); font-weight: 700; font-size: 12px; cursor: pointer; text-decoration: underline; }
-  #avisoSc { border: none; border-radius: 16px; padding: 20px; max-width: 340px; width: calc(100% - 32px);
+  #avisoSc, #jaLancada, #completar { border: none; border-radius: 16px; padding: 20px; max-width: 360px; width: calc(100% - 32px);
     background: var(--cor-cartao); color: var(--cor-texto); }
-  #avisoSc::backdrop { background: rgba(0,0,0,0.5); }
-  #avisoSc h3 { margin: 0 0 8px; font-size: 18px; }
-  #avisoSc p { margin: 0 0 16px; color: var(--cor-texto-suave); font-size: 15px; }
-  #avisoSc .botao-sec { width: 100%; margin-top: 10px; }
+  #avisoSc::backdrop, #jaLancada::backdrop, #completar::backdrop { background: rgba(0,0,0,0.5); }
+  #avisoSc h3, #jaLancada h3, #completar h3 { margin: 0 0 8px; font-size: 18px; }
+  #avisoSc p, #jaLancada p, #completar p { margin: 0 0 16px; color: var(--cor-texto-suave); font-size: 15px; }
+  #avisoSc .botao-sec, #jaLancada .botao-sec, #completar .botao-sec { width: 100%; margin-top: 10px; }
+  #jaLancada .resumo, #completar .resumo { background: var(--cor-fundo); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
+  #completar .erro-completar { color: var(--cor-erro); font-weight: 700; font-size: 14px; margin: 0 0 10px; }
+  .item .acoes button.completar { border-color: var(--cor-primaria); color: var(--cor-primaria); }
 </style>
 </head>
 <body>
@@ -406,12 +409,47 @@
   <button type="button" class="botao-sec" id="avisoScSeguir">Registrar sem SC</button>
 </dialog>
 
+<dialog id="jaLancada">
+  <h3>Essa nota já foi lançada</h3>
+  <div class="resumo" id="jaLancadaResumo"></div>
+  <p>Se for a mesma nota, complete o lançamento anterior em vez de lançar de novo: a SC, a observação e as fotos vão para ele.</p>
+  <button type="button" class="botao-principal" id="jaLancadaCompletar">Completar o lançamento anterior</button>
+  <button type="button" class="botao-sec" id="jaLancadaNova">É outra nota: lançar mesmo assim</button>
+  <button type="button" class="botao-sec" id="jaLancadaVoltar">Voltar</button>
+</dialog>
+
+<dialog id="completar">
+  <h3>Completar lançamento</h3>
+  <div class="resumo" id="completarResumo"></div>
+  <div class="campo">
+    <label for="completarSc">N° SC <span class="opcional">(troca a atual)</span></label>
+    <input type="text" id="completarSc" autocomplete="off" placeholder="Número da SC">
+  </div>
+  <div class="campo">
+    <label for="completarObs">Acrescentar observação</label>
+    <textarea id="completarObs" placeholder="Ex.: mangueira, parafusos..."></textarea>
+  </div>
+  <div class="campo">
+    <label>Foto a mais <span class="opcional">(até 3)</span></label>
+    <div class="foto-botoes">
+      <button type="button" id="completarCamera">📷 Tirar foto</button>
+      <button type="button" id="completarGaleria">🖼 Escolher da galeria</button>
+    </div>
+    <input type="file" id="completarInputCamera" accept="image/*" capture="environment" hidden>
+    <input type="file" id="completarInputGaleria" accept="image/*" multiple hidden>
+    <div class="miniaturas" id="completarMiniaturas"></div>
+  </div>
+  <p class="erro-completar" id="completarErro" hidden></p>
+  <button type="button" class="botao-principal" id="completarEnviar">Salvar no lançamento</button>
+  <button type="button" class="botao-sec" id="completarCancelar">Voltar</button>
+</dialog>
+
 <script src="comum.js"></script>
 <script>
 /* ===================== Configuração ===================== */
 const CONFIG = {
   API_URL: EXPEDICOES_API, // definido em comum.js (um lugar só para as três páginas)
-  VERSAO: '1.1.9',
+  VERSAO: '1.2.0',
   FAZENDAS_PADRAO: ['Santo Antônio', 'São Paulo', 'Chapecó', 'Esteio', 'Santa Bárbara'],
   LIMITE_FOTOS: 3,
   FOTO_LADO_MAX: 1600,   // px do maior lado (letra miúda de nota fiscal precisa de resolução)
@@ -782,6 +820,16 @@ $('#form').addEventListener('submit', async e => {
   const dados = lerFormulario();
   const problema = validar(dados);
   if (problema) { mostrarErro(problema.msg, problema.campo); return; }
+  // Mesma nota já lançada: oferece completar a anterior em vez de lançar de novo
+  const anterior = lancadaAntes(dados);
+  if (anterior) {
+    const escolha = await perguntarJaLancada(anterior);
+    if (escolha === 'voltar') return;
+    if (escolha === 'completar') {
+      if (await abrirCompletar(anterior, dados)) { resetarFormulario(); window.scrollTo(0, 0); }
+      return;
+    }
+  }
   // Com foto a SC não é obrigatória, mas a leitura nem sempre a encontra: avisa antes de registrar.
   if (!dados.sc && !(await perguntarSemSc())) {
     mostrarErro('Digite o N° SC.', 'sc');
@@ -934,10 +982,145 @@ function renderServidor(lista, ehCache) {
     linha.appendChild(criar('span', 'valor', moeda(i.valor)));
     div.appendChild(linha);
 
-    const selo = seloLeitura(i);
+    if (i.obsEnvio) div.appendChild(criar('div', 'detalhe', '💬 ' + i.obsEnvio));
+
+    const selo = i.baixada ? criar('span', 'selo', '✓ baixada pelo conferente') : seloLeitura(i);
     if (selo) div.appendChild(selo);
+    if (!i.baixada && i.linha) {
+      const acoes = criar('div', 'acoes');
+      const b = criar('button', 'completar', '＋ Completar');
+      b.type = 'button';
+      b.title = 'Acrescentar SC, observação ou foto nesta nota, sem lançar de novo';
+      b.onclick = () => abrirCompletar(i);
+      acoes.appendChild(b);
+      div.appendChild(acoes);
+    }
     area.appendChild(div);
   });
+}
+
+/* ===================== Completar um lançamento já enviado ===================== */
+let completarItem = null;
+let completarFotos = [];
+let completarFim = null; // resolve(true) quando salvou
+
+function desenharFotosCompletar() {
+  const area = $('#completarMiniaturas');
+  area.replaceChildren();
+  completarFotos.forEach((src, i) => {
+    const caixa = criar('div', 'miniatura');
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = 'Foto ' + (i + 1);
+    const x = criar('button', '', '×');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Remover foto ' + (i + 1));
+    x.onclick = () => { completarFotos.splice(i, 1); desenharFotosCompletar(); };
+    caixa.appendChild(img);
+    caixa.appendChild(x);
+    area.appendChild(caixa);
+  });
+  const cheio = completarFotos.length >= CONFIG.LIMITE_FOTOS;
+  $('#completarCamera').disabled = cheio;
+  $('#completarGaleria').disabled = cheio;
+}
+
+function resumoLancamento(i) {
+  return [i.fazenda, i.data, i.fornecedor || 'fornecedor a ler', i.notaFiscal ? 'NF/OS ' + i.notaFiscal : '', i.sc ? 'SC ' + i.sc : 'sem SC', 'Motorista ' + (i.motorista || '—')].filter(Boolean).join(' · ');
+}
+
+// Abre a janela; "inicial" traz o que a pessoa já tinha digitado no formulário. Resolve true se salvou.
+function abrirCompletar(item, inicial) {
+  completarItem = item;
+  inicial = inicial || {};
+  $('#completarResumo').textContent = resumoLancamento(item);
+  $('#completarSc').value = inicial.sc || '';
+  $('#completarSc').placeholder = item.sc ? 'Atual: ' + item.sc : 'Número da SC';
+  $('#completarObs').value = inicial.observacao || '';
+  completarFotos = (inicial.fotos || []).slice(0, CONFIG.LIMITE_FOTOS);
+  desenharFotosCompletar();
+  $('#completarErro').hidden = true;
+  $('#completarEnviar').disabled = false;
+  $('#completarEnviar').textContent = 'Salvar no lançamento';
+  $('#completar').showModal();
+  return new Promise(res => { completarFim = res; });
+}
+
+function fecharCompletar(salvou) {
+  if ($('#completar').open) $('#completar').close();
+  if (completarFim) { const f = completarFim; completarFim = null; f(salvou); }
+}
+
+async function enviarCompletar() {
+  const erro = msg => { $('#completarErro').textContent = msg; $('#completarErro').hidden = false; };
+  $('#completarErro').hidden = true;
+  const dados = { sc: $('#completarSc').value.trim(), observacao: $('#completarObs').value.trim(), fotos: completarFotos.slice() };
+  if (!dados.sc && !dados.observacao && !dados.fotos.length) return erro('Digite a SC, uma observação ou tire uma foto.');
+  if (!temConexao()) return erro('Para completar precisa de internet. Tente de novo quando o sinal voltar.');
+  const botao = $('#completarEnviar');
+  botao.disabled = true;
+  botao.textContent = 'Salvando...';
+  try {
+    const r = await api('completar', { id: completarItem.id, linha: completarItem.linha, dados: dados }, 120000);
+    toast('✓ Lançamento #' + r.id + ' completado' + (r.feito && r.feito.length ? ': ' + r.feito.join(', ') : '') + '.');
+    fecharCompletar(true);
+    atualizarHistoricoGuardado();
+    if (!$('#telaHistorico').hidden) renderHistorico();
+  } catch (e) {
+    erro(e.message);
+    botao.disabled = false;
+    botao.textContent = 'Salvar no lançamento';
+  }
+}
+
+$('#completarEnviar').onclick = enviarCompletar;
+$('#completarCancelar').onclick = () => fecharCompletar(false);
+$('#completar').addEventListener('close', () => fecharCompletar(false));
+$('#completarCamera').onclick = () => $('#completarInputCamera').click();
+$('#completarGaleria').onclick = () => $('#completarInputGaleria').click();
+['completarInputCamera', 'completarInputGaleria'].forEach(id => {
+  $('#' + id).addEventListener('change', async ev => {
+    const arquivos = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    for (const arq of arquivos) {
+      if (completarFotos.length >= CONFIG.LIMITE_FOTOS) break;
+      try { completarFotos.push(await comprimir(arq)); } catch (e) { toast('Não consegui abrir essa imagem.', true); }
+    }
+    desenharFotosCompletar();
+  });
+});
+
+/* ===================== Aviso: essa nota já foi lançada ===================== */
+const digitosNf = v => String(v || '').replace(/\D/g, '').replace(/^0+/, '');
+
+// Procura o número digitado nos últimos lançamentos (guardados no celular). Prefere um ainda não baixado.
+function lancadaAntes(dados) {
+  const n = digitosNf(dados.notaFiscal);
+  if (n.length < 3) return null;
+  const hist = lsGet('exp_hist') || [];
+  const iguais = hist.filter(i => digitosNf(i.notaFiscal) === n);
+  return iguais.find(i => !i.baixada) || iguais[0] || null;
+}
+
+// Resolve 'completar', 'nova' ou 'voltar'.
+function perguntarJaLancada(item) {
+  const d = $('#jaLancada');
+  $('#jaLancadaResumo').textContent = resumoLancamento(item) + (item.baixada ? ' · já baixada pelo conferente' : '');
+  $('#jaLancadaCompletar').hidden = !!item.baixada;
+  return new Promise(res => {
+    const fim = v => { d.onclose = null; if (d.open) d.close(); res(v); };
+    $('#jaLancadaCompletar').onclick = () => fim('completar');
+    $('#jaLancadaNova').onclick = () => fim('nova');
+    $('#jaLancadaVoltar').onclick = () => fim('voltar');
+    d.onclose = () => fim('voltar');
+    d.showModal();
+  });
+}
+
+// Mantém no celular a lista dos últimos lançamentos (para o aviso funcionar mesmo antes de abrir o Histórico).
+async function atualizarHistoricoGuardado() {
+  if (!navigator.onLine) return;
+  try { lsSet('exp_hist', await api('historico')); } catch (e) { /* fica o que já estava guardado */ }
 }
 
 async function renderHistorico() {
@@ -1023,6 +1206,7 @@ renderMiniaturas();
 atualizarObrigatorios();
 atualizarRede();
 atualizarAvisoFila();
+atualizarHistoricoGuardado();
 </script>
 </body>
 </html>
