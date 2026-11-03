@@ -439,7 +439,8 @@
   // Colunas da lista: [chave de ordenação, título, valor para ordenar]
   const COLUNAS = [
     ['data', 'Data', i => i.dataTs],
-    ['nf', 'NF/OS', i => normalizar(i.notaFiscal)],
+    ['nf', 'NF', i => ehOs(i) ? '' : normalizar(i.notaFiscal)],
+    ['os', 'OS', i => ehOs(i) ? normalizar(i.notaFiscal) : ''],
     ['fornecedor', 'Fornecedor', i => normalizar(i.fornecedor)],
     ['valor', 'Valor', i => i.valor === null ? -1 : i.valor],
     ['motorista', 'Motorista', i => normalizar(i.motorista)],
@@ -448,6 +449,7 @@
     ['situacao', 'Situação', i => rotuloSituacao(i)[1]]
   ];
   let ordemLista = null; // { chave, desc } quando a pessoa clica num título
+  const ehOs = i => i.comNf === 'Não'; // "Com NF: Não" = OS; Sim ou em branco = NF
 
   function montarTabela(itens) {
     if (ordemLista) {
@@ -471,8 +473,10 @@
       const tr = criar('tr', item.urgencia ? 'urgente' : '');
       const td = (texto, classe, rotulo) => { const c = criar('td', classe || '', texto); if (rotulo) c.dataset.rotulo = rotulo; tr.appendChild(c); return c; };
       td(item.data, 'nowrap');
-      const nf = td(item.aguardandoNota ? 'Sem nota' : (item.notaFiscal || '(sem número)'), 'nowrap', 'NF/OS');
+      const numero = item.notaFiscal ? String(item.notaFiscal) : '';
+      const nf = td(item.aguardandoNota ? 'Sem nota' : (ehOs(item) ? '—' : (numero || '(sem número)')), 'nowrap' + (!item.aguardandoNota && (ehOs(item) || !numero) ? ' vazio-cel' : ''), 'NF');
       if (item.aguardandoNota && item.obsSolicitacao) nf.appendChild(criar('span', 'sub', item.obsSolicitacao.length > 60 ? item.obsSolicitacao.slice(0, 60) + '…' : item.obsSolicitacao));
+      td(ehOs(item) ? (numero || '(sem número)') : '—', 'nowrap' + (ehOs(item) ? '' : ' vazio-cel'), 'OS');
       td(item.fornecedor || (item.aguardandoNota ? '' : 'a confirmar'), item.fornecedor ? '' : 'vazio-cel', 'Fornecedor');
       td(item.valor !== null ? moeda(item.valor) : '—', 'num' + (item.valor === null ? ' vazio-cel' : ''), 'Valor');
       td(item.motorista || '—', item.motorista ? '' : 'vazio-cel', 'Motorista');
