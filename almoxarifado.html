@@ -28,7 +28,57 @@
   header h1 { margin: 0; font-size: 18px; }
   header p { margin: 3px 0 0; font-size: 13px; opacity: 0.9; }
   header button { background: rgba(255,255,255,0.18); border: none; color: #fff; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
-  main { max-width: 760px; margin: 0 auto; padding: 14px 14px 40px; }
+  main { max-width: 1320px; margin: 0 auto; padding: 14px 14px 40px; }
+  #telaNome, #telaNovaNota, #telaSolicitar { max-width: 760px; margin: 0 auto; }
+
+  /* Lista em colunas (no celular, cada linha vira um cartão) */
+  .tabela-notas { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .tabela-notas th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .3px; color: var(--cor-texto-suave); padding: 8px 10px; border-bottom: 2px solid var(--cor-borda); white-space: nowrap; cursor: pointer; user-select: none; }
+  .tabela-notas th.ordem::after { content: " ▲"; }
+  .tabela-notas th.ordem.desc::after { content: " ▼"; }
+  .tabela-notas td { padding: 10px; border-bottom: 1px solid var(--cor-borda); vertical-align: top; overflow-wrap: anywhere; }
+  .tabela-notas tbody tr { cursor: pointer; }
+  .tabela-notas tbody tr:hover { background: var(--cor-fundo); }
+  .tabela-notas tr.urgente td:first-child { box-shadow: inset 4px 0 0 var(--cor-urgente); }
+  .tabela-notas .num { text-align: right; white-space: nowrap; }
+  .tabela-notas .nowrap { white-space: nowrap; }
+  .tabela-notas .sub { display: block; font-size: 12px; color: var(--cor-texto-suave); margin-top: 3px; }
+  #lista.cartao { padding: 6px 8px; overflow-x: auto; }
+  @media (max-width: 720px) {
+    .tabela-notas thead { display: none; }
+    .tabela-notas, .tabela-notas tbody, .tabela-notas tr, .tabela-notas td { display: block; width: 100%; }
+    .tabela-notas tr { padding: 10px 4px; border-bottom: 1px solid var(--cor-borda); }
+    .tabela-notas td { border: none; padding: 2px 6px; }
+    .tabela-notas td[data-rotulo]::before { content: attr(data-rotulo) ": "; color: var(--cor-texto-suave); font-size: 12.5px; }
+    .tabela-notas td.vazio-cel { display: none; }
+    .tabela-notas td.num { text-align: left; }
+  }
+
+  /* Nota aberta: documento grande à esquerda, dados e resposta à direita */
+  .layout-nota { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, 1fr); gap: 12px; align-items: start; }
+  .layout-nota > .cartao, .coluna-form > .cartao { margin-bottom: 12px; }
+  .visor { position: sticky; top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  @media (max-width: 900px) { .layout-nota { grid-template-columns: 1fr; } .visor { position: static; } }
+  .abas-docs { display: flex; gap: 6px; }
+  .abas-docs button { border: 1.5px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto-suave); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .abas-docs button.ativa { border-color: var(--cor-primaria); color: var(--cor-primaria); background: var(--cor-ok-fundo); }
+  .abas-docs button:disabled { opacity: 0.5; cursor: default; }
+  .foto-area { min-height: 300px; height: 72vh; display: flex; align-items: center; justify-content: center; padding: 6px; overflow: auto;
+    background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: 10px; color: var(--cor-texto-suave); font-size: 14px; text-align: center; }
+  @media (max-width: 900px) { .foto-area { height: 60vh; } }
+  .foto-area img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
+  .foto-area .paginas-pdf { align-self: flex-start; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .foto-area .paginas-pdf img { max-height: none; width: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .foto-area.zoomado { display: block; text-align: left; }
+  .foto-area.zoomado img { max-width: none; max-height: none; }
+  .foto-area.zoomado .paginas-pdf { width: max-content; }
+  .miniaturas { display: flex; gap: 6px; flex-wrap: wrap; }
+  .miniaturas button { padding: 0; border: 2px solid transparent; border-radius: 6px; background: var(--cor-fundo); cursor: pointer; overflow: hidden; width: 56px; height: 56px; font-size: 22px; }
+  .miniaturas button.ativa { border-color: var(--cor-primaria); }
+  .miniaturas img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .barra-vista { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .barra-vista .botao-sec { min-width: 38px; padding: 6px 10px; }
+  .barra-vista .zoom-atual { min-width: 44px; text-align: center; font-size: 12.5px; color: var(--cor-texto-suave); }
   .cartao { background: var(--cor-cartao); border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 12px; }
   #aviso { padding: 11px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
   #aviso.ok { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); }
@@ -135,7 +185,7 @@
       <button class="botao-sec" id="botaoImprimirTodas" title="Imprimir as notas desta aba">🖨</button>
     </div>
     <div class="cartao" id="lista"></div>
-    <p class="dica">Toque numa nota para ver o documento e responder. Você está como <b id="nomeAtual"></b> · <button class="link" id="trocarNome">trocar</button></p>
+    <p class="dica">Clique numa nota para ver o documento e responder. Clique no título de uma coluna para ordenar. Você está como <b id="nomeAtual"></b> · <button class="link" id="trocarNome">trocar</button></p>
   </section>
 
   <section id="telaNota" hidden>
@@ -144,10 +194,23 @@
       <span class="dica" id="posicao"></span>
     </div>
     <div class="faixa-urgente" id="faixaUrgente" hidden></div>
-    <div class="cartao">
-      <h2 style="margin:0 0 10px;font-size:17px" id="tituloNota"></h2>
-      <dl id="dadosNota"></dl>
-      <div class="docs" id="docs"></div>
+    <div class="layout-nota">
+    <div class="cartao visor">
+      <div class="abas-docs">
+        <button type="button" id="abaDocNota" class="ativa">Nota / OS</button>
+        <button type="button" id="abaDocPedido">Pedido de compra</button>
+      </div>
+      <div class="foto-area" id="fotoArea">Carregando...</div>
+      <div class="miniaturas" id="fotoMiniaturas"></div>
+      <div class="barra-vista">
+        <button type="button" class="botao-sec" id="vistaMenos" title="Diminuir">−</button>
+        <span class="zoom-atual" id="vistaZoom">100%</span>
+        <button type="button" class="botao-sec" id="vistaMais" title="Aumentar. Dois toques no documento também aumentam.">＋</button>
+        <button type="button" class="botao-sec" id="vistaAjustar" title="Voltar ao tamanho da tela">Ajustar</button>
+        <button type="button" class="botao-sec" id="vistaGirarEsq" title="Girar para a esquerda">⟲</button>
+        <button type="button" class="botao-sec" id="vistaGirarDir" title="Girar para a direita">⟳</button>
+        <a class="botao-sec" id="abrirPdf" target="_blank" hidden>📄 PDF original</a>
+      </div>
       <div class="linha-botoes">
         <button class="botao-sec" id="imprimirNota">🖨 Imprimir</button>
         <button class="botao-sec" id="botaoAnexarDoc">📎 Anexar documento</button>
@@ -161,6 +224,11 @@
         <div class="linha-botoes"><button class="botao" id="botaoEnviarAnexo">Enviar documento</button><button class="botao-sec" id="cancelarAnexo">Cancelar</button></div>
         <div class="erro-form" id="erroAnexo" hidden></div>
       </div>
+    </div>
+    <div class="coluna-form">
+    <div class="cartao">
+      <h2 style="margin:0 0 10px;font-size:17px" id="tituloNota"></h2>
+      <dl id="dadosNota"></dl>
     </div>
     <div class="cartao" id="formResposta">
       <div class="respondida" id="jaRespondida" hidden></div>
@@ -201,6 +269,8 @@
       </div>
       <div class="erro-form" id="erroForm" hidden></div>
       <button class="botao" id="botaoSalvar" style="width:100%">Salvar e ir para a próxima</button>
+    </div>
+    </div>
     </div>
   </section>
 
@@ -362,23 +432,63 @@
     if (!visiveis.length) {
       lista.appendChild(criar('div', 'dica', busca ? 'Nenhuma nota com essa busca.' : abaAtual === 'responder' ? 'Nenhuma nota esperando resposta. 👍' : 'Nada aqui.'));
     }
-    visiveis.forEach(item => {
-      const linha = criar('div', 'item');
-      const info = criar('div', 'info');
-      const titulo = item.aguardandoNota ? 'Sem nota: ' + (item.obsSolicitacao || 'mercadoria recebida') : 'NF/OS ' + (item.notaFiscal || '(sem número)');
-      info.appendChild(criar('div', 'titulo', titulo.length > 70 ? titulo.slice(0, 70) + '…' : titulo));
-      info.appendChild(criar('div', 'detalhe', [item.fornecedor || (item.aguardandoNota ? '' : 'Fornecedor a confirmar'), item.valor !== null ? moeda(item.valor) : '', item.data, item.motorista ? 'Motorista ' + item.motorista : ''].filter(Boolean).join(' · ')));
-      if (item.notaPedida) info.appendChild(criar('div', 'detalhe', '⏳ esperando o conferente anexar a nota'));
-      linha.appendChild(info);
-      const lado = criar('div', 'lado');
-      if (item.urgencia) lado.appendChild(criar('span', 'chip urgente', '🔥 Urgente'));
-      const r = rotuloSituacao(item);
-      lado.appendChild(criar('span', 'chip ' + r[0], r[1]));
-      linha.appendChild(lado);
-      linha.onclick = () => abrirNota(item);
-      lista.appendChild(linha);
-    });
+    if (visiveis.length) lista.appendChild(montarTabela(visiveis));
     mostrar('telaLista');
+  }
+
+  // Colunas da lista: [chave de ordenação, título, valor para ordenar]
+  const COLUNAS = [
+    ['data', 'Data', i => i.dataTs],
+    ['nf', 'NF/OS', i => normalizar(i.notaFiscal)],
+    ['fornecedor', 'Fornecedor', i => normalizar(i.fornecedor)],
+    ['valor', 'Valor', i => i.valor === null ? -1 : i.valor],
+    ['motorista', 'Motorista', i => normalizar(i.motorista)],
+    ['origem', 'Veio de', i => normalizar(i.origem)],
+    ['docs', 'Docs', i => i.numDocs + i.numPedido],
+    ['situacao', 'Situação', i => rotuloSituacao(i)[1]]
+  ];
+  let ordemLista = null; // { chave, desc } quando a pessoa clica num título
+
+  function montarTabela(itens) {
+    if (ordemLista) {
+      const col = COLUNAS.find(c => c[0] === ordemLista.chave);
+      itens = itens.slice().sort((a, b) => { const x = col[2](a), y = col[2](b); return (x < y ? -1 : x > y ? 1 : 0) * (ordemLista.desc ? -1 : 1); });
+      visiveis = itens; // "Salvar e ir para a próxima" segue a ordem da tela
+    }
+    const tabela = criar('table', 'tabela-notas');
+    const cab = document.createElement('tr');
+    COLUNAS.forEach(c => {
+      const th = criar('th', ordemLista && ordemLista.chave === c[0] ? 'ordem' + (ordemLista.desc ? ' desc' : '') : '', c[1]);
+      th.onclick = () => {
+        ordemLista = ordemLista && ordemLista.chave === c[0] ? (ordemLista.desc ? null : { chave: c[0], desc: true }) : { chave: c[0], desc: false };
+        mostrarLista();
+      };
+      cab.appendChild(th);
+    });
+    tabela.appendChild(document.createElement('thead')).appendChild(cab);
+    const corpo = tabela.appendChild(document.createElement('tbody'));
+    itens.forEach(item => {
+      const tr = criar('tr', item.urgencia ? 'urgente' : '');
+      const td = (texto, classe, rotulo) => { const c = criar('td', classe || '', texto); if (rotulo) c.dataset.rotulo = rotulo; tr.appendChild(c); return c; };
+      td(item.data, 'nowrap');
+      const nf = td(item.aguardandoNota ? 'Sem nota' : (item.notaFiscal || '(sem número)'), 'nowrap', 'NF/OS');
+      if (item.aguardandoNota && item.obsSolicitacao) nf.appendChild(criar('span', 'sub', item.obsSolicitacao.length > 60 ? item.obsSolicitacao.slice(0, 60) + '…' : item.obsSolicitacao));
+      td(item.fornecedor || (item.aguardandoNota ? '' : 'a confirmar'), item.fornecedor ? '' : 'vazio-cel', 'Fornecedor');
+      td(item.valor !== null ? moeda(item.valor) : '—', 'num' + (item.valor === null ? ' vazio-cel' : ''), 'Valor');
+      td(item.motorista || '—', item.motorista ? '' : 'vazio-cel', 'Motorista');
+      td(item.origem + (item.solicitadoPor ? ' (' + item.solicitadoPor + ')' : ''), '', 'Veio de');
+      const nDocs = item.numDocs + item.numPedido;
+      td(nDocs ? '📎 ' + nDocs : '—', 'nowrap' + (nDocs ? '' : ' vazio-cel'), 'Docs');
+      const sit = td('', '');
+      if (item.urgencia) { sit.appendChild(criar('span', 'chip urgente', '🔥 Urgente')); sit.appendChild(document.createTextNode(' ')); }
+      const r = rotuloSituacao(item);
+      sit.appendChild(criar('span', 'chip ' + r[0], r[1]));
+      if (item.notaPedida) sit.appendChild(criar('span', 'sub', '⏳ esperando o conferente anexar a nota'));
+      if (item.urgencia) sit.appendChild(criar('span', 'sub', item.urgencia));
+      tr.onclick = () => abrirNota(item);
+      corpo.appendChild(tr);
+    });
+    return tabela;
   }
 
   /* ---------- Nota ---------- */
@@ -396,32 +506,6 @@
       ['Com nota fiscal', item.comNf], ['Motorista', item.motorista], ['Veio de', item.origem + (item.solicitadoPor ? ' (' + item.solicitadoPor + ')' : '')],
       ['Obs. do envio', item.obsEnvio], ['Obs.', item.obsSolicitacao]
     ];
-  }
-
-  function mostrarDocs(lista, area) {
-    lista.forEach(src => {
-      if (ehPdf(src)) {
-        // o celular não mostra PDF dentro da página: cada página vira uma imagem
-        const url = urlDeDados(src);
-        urlsBlob.push(url);
-        const lugar = criar('div', 'vazio', 'Abrindo PDF...');
-        area.appendChild(lugar);
-        const abrir = criar('a', 'botao-sec', '📄 Abrir o PDF original');
-        abrir.href = url;
-        abrir.target = '_blank';
-        area.appendChild(abrir);
-        pdfParaImagens(src).then(paginas => {
-          lugar.innerHTML = '';
-          lugar.className = 'docs';
-          paginas.forEach((p, k) => { const img = document.createElement('img'); img.src = p; img.alt = 'Página ' + (k + 1); lugar.appendChild(img); });
-        }, erro => { lugar.textContent = 'Não consegui mostrar o PDF aqui (' + erro.message + '). Use o botão abaixo.'; });
-      } else {
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = 'Documento da nota';
-        area.appendChild(img);
-      }
-    });
   }
 
   async function abrirNota(item) {
@@ -464,22 +548,161 @@
     if (bloqueada) { $('jaRespondida').hidden = false; $('jaRespondida').textContent = 'Esta nota já foi baixada pelo conferente. Para mudar algo, fale com ele.'; }
     mostrar('telaNota');
 
-    const docs = $('docs');
-    docs.innerHTML = '';
+    await carregarVisor(item);
+  }
+
+  /* ---------- Visor de documentos (como na Conferência): abas, miniaturas, zoom e giro ---------- */
+  const ZOOMS = [1, 1.5, 2, 3, 4];
+  let docsVista = { nota: [], pedido: [] };
+  let abaDoc = 'nota';
+  let zoomDoc = 1, giroDoc = 0, vezGiro = 0;
+  let paginasVista = []; // imagens originais do documento aberto (foto ou páginas do PDF)
+
+  const imagensVista = () => Array.from($('fotoArea').querySelectorAll('img'));
+
+  function atualizarAbasDocs() {
+    $('abaDocNota').textContent = 'Nota / OS (' + docsVista.nota.length + ')';
+    $('abaDocPedido').textContent = 'Pedido de compra (' + docsVista.pedido.length + ')';
+    $('abaDocNota').className = abaDoc === 'nota' ? 'ativa' : '';
+    $('abaDocPedido').className = abaDoc === 'pedido' ? 'ativa' : '';
+    $('abaDocPedido').disabled = !docsVista.pedido.length;
+  }
+
+  function mensagemVisor(texto) {
+    zerarVista();
+    $('fotoArea').textContent = texto;
+    $('fotoMiniaturas').innerHTML = '';
+    $('abrirPdf').hidden = true;
+  }
+
+  async function carregarVisor(item) {
+    docsVista = { nota: [], pedido: [] };
+    abaDoc = 'nota';
+    atualizarAbasDocs();
     if (!item.numDocs && !item.numPedido) {
-      docs.appendChild(criar('div', 'vazio', item.docsRemovidos ? 'O documento já foi arquivado.' : item.aguardandoNota ? 'O conferente ainda vai anexar a nota.' : 'Esta nota não tem documento anexado.'));
+      mensagemVisor(item.docsRemovidos ? 'O documento já foi arquivado.' : item.aguardandoNota || item.notaPedida ? 'O conferente ainda vai anexar a nota.' : 'Esta nota não tem documento anexado.');
       return;
     }
-    docs.appendChild(criar('div', 'vazio', 'Carregando documento...'));
+    mensagemVisor('Carregando documento...');
     try {
       const d = await documentosDe(item);
       if (atual !== item) return;
-      docs.innerHTML = '';
-      mostrarDocs(d.docs, docs);
-      if (d.pedido.length) { docs.appendChild(criar('div', 'secao', 'Pedido de compra')); mostrarDocs(d.pedido, docs); }
+      docsVista = { nota: d.docs, pedido: d.pedido };
+      abaDoc = d.docs.length || !d.pedido.length ? 'nota' : 'pedido';
+      mostrarAba();
     } catch (e) {
-      if (atual === item) { docs.innerHTML = ''; docs.appendChild(criar('div', 'vazio', 'Não consegui carregar o documento: ' + e.message)); }
+      if (atual === item) mensagemVisor('Não consegui carregar o documento: ' + e.message);
     }
+  }
+
+  function mostrarAba() {
+    atualizarAbasDocs();
+    const lista = docsVista[abaDoc];
+    const minis = $('fotoMiniaturas');
+    minis.innerHTML = '';
+    if (!lista.length) { mensagemVisor(abaDoc === 'pedido' ? 'Nenhum pedido de compra anexado.' : 'Nenhum documento da nota anexado.'); return; }
+    if (lista.length > 1) {
+      lista.forEach((src, i) => {
+        const b = criar('button');
+        b.type = 'button';
+        if (ehPdf(src)) b.textContent = '📄';
+        else { const img = document.createElement('img'); img.src = src; img.alt = 'Documento ' + (i + 1); b.appendChild(img); }
+        b.onclick = () => mostrarDocVista(i);
+        minis.appendChild(b);
+      });
+    }
+    mostrarDocVista(0);
+  }
+
+  async function mostrarDocVista(i) {
+    const src = docsVista[abaDoc][i];
+    const item = atual;
+    zerarVista();
+    Array.from($('fotoMiniaturas').children).forEach((b, k) => { b.className = k === i ? 'ativa' : ''; });
+    const area = $('fotoArea');
+    area.innerHTML = '';
+    const pdf = ehPdf(src);
+    $('abrirPdf').hidden = !pdf;
+    if (pdf) {
+      // o celular não mostra PDF dentro da página: cada página vira uma imagem
+      const url = urlDeDados(src);
+      urlsBlob.push(url);
+      $('abrirPdf').href = url;
+      area.textContent = 'Abrindo PDF...';
+      try {
+        const paginas = await pdfParaImagens(src);
+        if (atual !== item || docsVista[abaDoc][i] !== src) return;
+        area.innerHTML = '';
+        const pilha = criar('div', 'paginas-pdf');
+        paginas.forEach((p, k) => { const img = document.createElement('img'); img.src = p; img.alt = 'Página ' + (k + 1); pilha.appendChild(img); });
+        area.appendChild(pilha);
+        paginasVista = paginas;
+      } catch (erro) {
+        area.textContent = 'Não consegui mostrar o PDF aqui (' + erro.message + '). Use "PDF original".';
+        return;
+      }
+    } else {
+      const img = document.createElement('img');
+      img.alt = 'Documento da nota';
+      img.src = src;
+      area.appendChild(img);
+      paginasVista = [src];
+    }
+    aplicarZoom();
+  }
+
+  function zerarVista() { zoomDoc = 1; giroDoc = 0; paginasVista = []; vezGiro++; aplicarZoom(); }
+
+  function aplicarZoom() {
+    const area = $('fotoArea');
+    const imgs = imagensVista();
+    area.classList.remove('zoomado');
+    imgs.forEach(img => { img.style.width = ''; });
+    if (zoomDoc > 1) {
+      const bases = imgs.map(img => img.getBoundingClientRect().width);
+      area.classList.add('zoomado');
+      imgs.forEach((img, k) => { img.style.width = Math.round(bases[k] * zoomDoc) + 'px'; });
+    }
+    $('vistaZoom').textContent = Math.round(zoomDoc * 100) + '%';
+    const semDoc = !paginasVista.length;
+    ['vistaAjustar', 'vistaGirarEsq', 'vistaGirarDir'].forEach(id => { $(id).disabled = semDoc; });
+    $('vistaMenos').disabled = semDoc || zoomDoc === ZOOMS[0];
+    $('vistaMais').disabled = semDoc || zoomDoc === ZOOMS[ZOOMS.length - 1];
+  }
+
+  function mudarZoom(passo) {
+    zoomDoc = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoomDoc) + passo))];
+    aplicarZoom();
+  }
+
+  function girarImagem(src, graus) {
+    if (!graus) return Promise.resolve(src);
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        const deitado = graus % 180 !== 0;
+        c.width = deitado ? img.height : img.width;
+        c.height = deitado ? img.width : img.height;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width / 2, c.height / 2);
+        ctx.rotate(graus * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        res(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => rej(new Error('Não consegui girar a imagem.'));
+      img.src = src;
+    });
+  }
+
+  async function girarDoc(graus) {
+    if (!paginasVista.length) return;
+    giroDoc = (giroDoc + graus + 360) % 360;
+    const vez = ++vezGiro;
+    const novas = await Promise.all(paginasVista.map(p => girarImagem(p, giroDoc)));
+    if (vez !== vezGiro) return;
+    await Promise.all(imagensVista().map((img, k) => new Promise(r => { img.onload = img.onerror = r; img.src = novas[k] || img.src; })));
+    if (vez === vezGiro) aplicarZoom();
   }
 
   function atualizarSituacao() {
@@ -734,6 +957,14 @@
   $('botaoHoje').onclick = () => { $('campoData').value = hojeLocal(); };
   $('solHoje').onclick = () => { $('solData').value = hojeLocal(); };
   $('nnHoje').onclick = () => { $('nnData').value = hojeLocal(); };
+  $('abaDocNota').onclick = () => { abaDoc = 'nota'; mostrarAba(); };
+  $('abaDocPedido').onclick = () => { abaDoc = 'pedido'; mostrarAba(); };
+  $('vistaMenos').onclick = () => mudarZoom(-1);
+  $('vistaMais').onclick = () => mudarZoom(1);
+  $('vistaAjustar').onclick = () => { zoomDoc = 1; aplicarZoom(); };
+  $('vistaGirarEsq').onclick = () => girarDoc(-90);
+  $('vistaGirarDir').onclick = () => girarDoc(90);
+  $('fotoArea').ondblclick = () => { if (paginasVista.length) { zoomDoc = zoomDoc === 1 ? 2 : 1; aplicarZoom(); } };
   $('campoSemSc').onchange = () => atualizarSemSc('campo');
   $('nnSemSc').onchange = () => atualizarSemSc('nn');
   $('botaoSalvar').onclick = salvar;
