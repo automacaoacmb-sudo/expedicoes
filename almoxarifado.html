@@ -41,6 +41,7 @@
   .tabela-notas tbody tr:hover { background: var(--cor-fundo); }
   .tabela-notas tr.urgente td:first-child { box-shadow: inset 4px 0 0 var(--cor-urgente); }
   .tabela-notas .num { text-align: right; white-space: nowrap; }
+  .tabela-notas .num-id { color: var(--cor-texto-suave); font-weight: 700; }
   .tabela-notas .nowrap { white-space: nowrap; }
   .tabela-notas .sub { display: block; font-size: 12px; color: var(--cor-texto-suave); margin-top: 3px; }
   #lista.cartao { padding: 6px 8px; overflow-x: auto; }
@@ -361,19 +362,44 @@
     window.scrollTo(0, 0);
   }
 
-  async function carregar(manterTela) {
-    try {
-      dados = await api('almoxLista', acesso());
-    } catch (e) {
-      $('carregando').hidden = true;
-      aviso(e.codigo === 'chave' ? e.message : 'Não consegui carregar as notas: ' + e.message, false);
-      return false;
-    }
+  // Última lista recebida, guardada no aparelho (uma por link): aparece na hora ao abrir, enquanto a nova chega.
+  const chaveCache = () => 'exp_portal_lista_' + (chave || codigoEnvio).slice(0, 12);
+  let atualizandoLista = false;
+
+  function aplicarCabecalho() {
     $('carregando').hidden = true;
     $('botaoAtualizar').hidden = false;
     $('subtitulo').textContent = dados.titulo;
     document.title = dados.portal ? dados.titulo : 'Recebimento de notas';
     $('acoesPortal').hidden = !dados.portal;
+  }
+
+  async function carregar(manterTela) {
+    const guardada = !dados && !manterTela ? lsGet(chaveCache()) : null;
+    if (guardada && guardada.itens && nome()) {
+      dados = guardada;
+      atualizandoLista = true;
+      aplicarCabecalho();
+      mostrarLista();
+    }
+    try {
+      const novos = await api('almoxLista', acesso());
+      lsSet(chaveCache(), novos);
+      dados = novos;
+    } catch (e) {
+      $('carregando').hidden = true;
+      if (atualizandoLista) { atualizandoLista = false; if (!$('telaLista').hidden) mostrarLista(); aviso('Não consegui atualizar a lista (' + e.message + '). Mostrando a última recebida.', false); return true; }
+      aviso(e.codigo === 'chave' ? e.message : 'Não consegui carregar as notas: ' + e.message, false);
+      return false;
+    }
+    if (atualizandoLista) {
+      // só redesenha a lista se a pessoa ainda está nela (não interrompe quem já abriu uma nota)
+      atualizandoLista = false;
+      aplicarCabecalho();
+      if (!$('telaLista').hidden) mostrarLista();
+      return true;
+    }
+    aplicarCabecalho();
     if (!manterTela) {
       if (!nome()) { mostrar('telaNome'); return true; }
       mostrarLista();
@@ -438,6 +464,7 @@
 
   // Colunas da lista: [chave de ordenação, título, valor para ordenar]
   const COLUNAS = [
+    ['id', 'Nº', i => Number(i.id) || 0],
     ['data', 'Data', i => i.dataTs],
     ['nf', 'NF', i => ehOs(i) ? '' : normalizar(i.notaFiscal)],
     ['os', 'OS', i => ehOs(i) ? normalizar(i.notaFiscal) : ''],
@@ -472,6 +499,7 @@
     itens.forEach(item => {
       const tr = criar('tr', item.urgencia ? 'urgente' : '');
       const td = (texto, classe, rotulo) => { const c = criar('td', classe || '', texto); if (rotulo) c.dataset.rotulo = rotulo; tr.appendChild(c); return c; };
+      td(String(item.id), 'nowrap num-id', 'Nº');
       td(item.data, 'nowrap');
       const numero = item.notaFiscal ? String(item.notaFiscal) : '';
       const nf = td(item.aguardandoNota ? 'Sem nota' : (ehOs(item) ? '—' : (numero || '(sem número)')), 'nowrap' + (!item.aguardandoNota && (ehOs(item) || !numero) ? ' vazio-cel' : ''), 'NF');
@@ -553,6 +581,22 @@
     mostrar('telaNota');
 
     await carregarVisor(item);
+    precarregarProximos(item);
+  }
+
+  // Enquanto a pessoa responde uma nota, já busca os documentos das 2 seguintes (abrem na hora).
+  let precarregando = false;
+  async function precarregarProximos(item) {
+    if (precarregando) return;
+    precarregando = true;
+    try {
+      const i = visiveis.indexOf(item);
+      for (const x of visiveis.slice(i + 1, i + 3)) {
+        if ((x.numDocs || x.numPedido) && !cacheDocs[x.id]) { try { await documentosDe(x); } catch (e) { /* abre normalmente depois */ } }
+      }
+      const ids = Object.keys(cacheDocs);
+      while (ids.length > 8) delete cacheDocs[ids.shift()];
+    } finally { precarregando = false; }
   }
 
   /* ---------- Visor de documentos (como na Conferência): abas, miniaturas, zoom e giro ---------- */
@@ -769,21 +813,24 @@
       if (!envio.frota) return erroEm('erroForm', 'Informe a frota.', 'campoFrota');
       Object.assign(envio, sc, { semNota: $('semNota').checked });
     }
-    const botao = $('botaoSalvar');
-    botao.disabled = true;
-    botao.textContent = 'Salvando...';
+    // A tela já vai para a próxima; a resposta é gravada em segundo plano. Se falhar, a nota volta para
+    // "A responder" e aparece o aviso para responder de novo.
+    const antes = { resposta: item.resposta, notaPedida: item.notaPedida };
+    item.resposta = { situacao: situacao, dataRecebimento: envio.dataRecebimento || '', sc: sc ? (sc.semSc ? SEM_SC : sc.sc) : '', frota: envio.frota || '', obs: sc ? juntarMotivo(sc, envio.obs) : envio.obs, por: nome(), em: 'gravando...' };
+    if (situacao === 'Recebido') item.notaPedida = envio.semNota;
+    const rotulo = 'NF/OS ' + (item.notaFiscal || '(sem número)') + ' (Nº ' + item.id + ')';
+    const proxima = visiveis.find(x => x !== item && !x.resposta && !x.baixada);
+    if (!proxima) { mostrarLista(); aviso('Gravando a resposta... Nenhuma outra nota esperando resposta.', true); }
+    else { abrirNota(proxima); aviso('Gravando a resposta da ' + rotulo + '... Próxima nota:', true); }
     try {
       const r = await api('almoxResponder', envio);
-      item.resposta = { situacao: situacao, dataRecebimento: envio.dataRecebimento || '', sc: sc ? (sc.semSc ? SEM_SC : sc.sc) : '', frota: envio.frota || '', obs: sc ? juntarMotivo(sc, envio.obs) : envio.obs, por: nome(), em: r.em };
-      if (situacao === 'Recebido') item.notaPedida = envio.semNota;
-      const proxima = visiveis.find(x => x !== item && !x.resposta && !x.baixada);
-      if (!proxima) { mostrarLista(); aviso('Salvo ✓ Nenhuma nota esperando resposta. Obrigado!', true); }
-      else { await abrirNota(proxima); aviso('Salvo ✓ Próxima nota:', true); }
+      item.resposta.em = r.em;
+      aviso('Salvo ✓ ' + rotulo + (proxima && atual === proxima ? '. Próxima nota:' : '.'), true);
     } catch (e) {
-      erroEm('erroForm', e.message);
-    } finally {
-      botao.disabled = false;
-      botao.textContent = 'Salvar e ir para a próxima';
+      item.resposta = antes.resposta;
+      item.notaPedida = antes.notaPedida;
+      aviso('⚠ Não gravou a resposta da ' + rotulo + ': ' + String(e.message).replace(/\.+$/, '') + '. Ela voltou para "A responder": abra e salve de novo.', false);
+      if (!$('telaLista').hidden) mostrarLista();
     }
   }
 
