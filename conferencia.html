@@ -262,6 +262,8 @@
   .e-baixada { background: var(--cor-primaria); color: #fff; }
   .e-urgente { background: #c2410c; color: #fff; margin-right: 4px; }
   .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
+  .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-transform: none; }
+  .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
   td.obs-conf textarea {
     width: 100%; min-height: 32px; resize: vertical; font: inherit; padding: 5px 7px; border-radius: 6px;
@@ -480,7 +482,8 @@
       <div class="grade-campos">
         <div class="campo-modal"><label for="novaOrigem">Veio de</label><select id="novaOrigem"></select></div>
         <div class="campo-modal"><label for="novaFazenda">Fazenda</label><select id="novaFazenda"></select></div>
-        <div class="campo-modal largo"><label for="novaArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="novaArquivos" accept="image/*,application/pdf" multiple></div>
+        <div class="campo-modal largo"><label for="novaArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="novaArquivos" accept="image/*,application/pdf" multiple>
+          <label class="check-lote"><input type="checkbox" id="novaLote"> Envio em lote: cada arquivo é uma nota diferente (os dados de cada uma vêm da leitura)</label></div>
         <div class="campo-modal"><label for="novaNF">NF/OS</label><input type="text" id="novaNF" autocomplete="off"></div>
         <div class="campo-modal"><label for="novaValor">Valor (R$)</label><input type="text" id="novaValor" inputmode="decimal" autocomplete="off"></div>
         <div class="campo-modal largo"><label for="novaFornecedor">Fornecedor</label><input type="text" id="novaFornecedor" autocomplete="off"></div>
@@ -517,7 +520,8 @@
   const COLUNAS = [
     { chave: 'fazenda', titulo: 'Fazenda' },
     { chave: 'dataTs', titulo: 'Data', tipo: 'numero', alinhar: 'centro' },
-    { chave: 'notaFiscal', titulo: 'NF/OS', alinhar: 'centro' },
+    { chave: 'nfNumero', titulo: 'NF', alinhar: 'centro' },
+    { chave: 'osNumero', titulo: 'OS', alinhar: 'centro' },
     { chave: 'sc', titulo: 'N° SC', alinhar: 'centro' },
     { chave: 'fornecedor', titulo: 'Fornecedor', quebra: true },
     { chave: 'valor', titulo: 'Valor', tipo: 'numero', alinhar: 'direita' },
@@ -613,6 +617,10 @@
 
   function prepararItem(item) {
     item.obsSalva = item.obsConferencia;
+    // o número vai para a coluna NF ou OS conforme "Com NF" (Não = OS; Sim ou em branco = NF)
+    const ehOs = item.comNf === 'Não';
+    item.nfNumero = ehOs ? '' : (item.notaFiscal == null ? '' : String(item.notaFiscal));
+    item.osNumero = ehOs ? (item.notaFiscal == null ? '' : String(item.notaFiscal)) : '';
     item.leitura = textoLeitura(item);
     item.etapaTexto = textoEtapa(item);
     return item;
@@ -672,7 +680,8 @@
     switch (chave) {
       case 'dataTs': return item.data;
       case 'valor': return item.valor === null ? '' : formatarValor(item.valor) + ' ' + Number(item.valor).toFixed(2).replace('.', ',');
-      case 'notaFiscal': return item.notaFiscal + ' ' + (item.comNf === 'Não' ? 'sem nf' : '');
+      case 'nfNumero': return item.nfNumero;
+      case 'osNumero': return item.osNumero;
       case 'fornecedor': return item.fornecedor + ' ' + item.obsEnvio;
       case 'leitura': return item.leitura + ' ' + item.camposIA.join(' ');
       case 'etapa': return item.etapaTexto;
@@ -896,9 +905,12 @@
             td.appendChild(atraso);
           }
           break;
-        case 'notaFiscal':
-          td = celulaDado(item, 'notaFiscal', 'nowrap centro', item.notaFiscal);
-          if (item.comNf === 'Não') td.appendChild(sub('sem NF'));
+        case 'nfNumero':
+          td = celulaDado(item, 'notaFiscal', 'nowrap centro', item.nfNumero);
+          if (item.nfNumero && !item.comNf) td.appendChild(sub('NF ou OS?'));
+          break;
+        case 'osNumero':
+          td = celulaDado(item, 'notaFiscal', 'nowrap centro', item.osNumero);
           break;
         case 'sc':
           td = celulaDado(item, 'sc', 'nowrap centro', item.sc);
@@ -1728,15 +1740,53 @@
     faz.innerHTML = '';
     [''].concat(dados.meta.fazendas).forEach(function(f) { const op = criar('option', '', f === '' ? '— definir depois —' : f); op.value = f; faz.appendChild(op); });
     ['novaArquivos', 'novaNF', 'novaValor', 'novaFornecedor', 'novaObs'].forEach(function(id) { $(id).value = ''; });
+    $('novaLote').checked = false;
+    atualizarLote();
     $('novaAviso').textContent = '';
     $('novaAviso').className = 'aviso-modal';
     $('botaoCriarNota').disabled = false;
     $('modalNovaNota').hidden = false;
   }
 
+  // Em lote, NF/valor/fornecedor não se aplicam (cada nota tem os seus, lidos da foto).
+  function atualizarLote() {
+    const lote = $('novaLote').checked;
+    ['novaNF', 'novaValor', 'novaFornecedor'].forEach(function(id) { $(id).disabled = lote; if (lote) $(id).value = ''; });
+    $('botaoCriarNota').textContent = lote ? 'Registrar uma nota por arquivo' : 'Registrar nota';
+  }
+
+  // Uma chamada por arquivo, em sequência, mostrando o andamento. As que falharem são listadas no fim.
+  async function criarNotasEmLote(arquivos) {
+    const botao = $('botaoCriarNota');
+    const aviso = $('novaAviso');
+    const base = { origem: $('novaOrigem').value, fazenda: $('novaFazenda').value, obs: $('novaObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
+    const criadas = [], falhas = [], avisos = [];
+    botao.disabled = true;
+    for (let i = 0; i < arquivos.length; i++) {
+      aviso.className = 'aviso-modal';
+      aviso.textContent = 'Enviando ' + (i + 1) + ' de ' + arquivos.length + '...';
+      try {
+        const lista = await lerArquivos([arquivos[i]]);
+        const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(base, lista); });
+        if (r.ok) { criadas.push('#' + r.id); if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso); }
+        else falhas.push(arquivos[i].name + ' (' + r.mensagem + ')');
+      } catch (erro) { falhas.push(arquivos[i].name + ' (' + erro.message + ')'); }
+    }
+    botao.disabled = false;
+    if (falhas.length) {
+      aviso.className = 'aviso-modal erro';
+      aviso.textContent = criadas.length + ' nota(s) registrada(s)' + (criadas.length ? ' (' + criadas.join(', ') + ')' : '') + '. Não foram: ' + falhas.join('; ');
+    } else {
+      $('modalNovaNota').hidden = true;
+      mostrarAviso(criadas.length + ' notas registradas (' + criadas.join(', ') + ') e na fila de leitura.' + (avisos.length ? ' ' + avisos.join(' ') : ''), !avisos.length);
+    }
+    if (criadas.length) carregar();
+  }
+
   function criarNota() {
     const arquivos = $('novaArquivos').files;
     if (!arquivos.length) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Anexe a foto ou o PDF da nota.'; return; }
+    if ($('novaLote').checked) { criarNotasEmLote(Array.from(arquivos)); return; }
     const botao = $('botaoCriarNota');
     botao.disabled = true;
     $('novaAviso').className = 'aviso-modal';
@@ -1824,6 +1874,7 @@
   $('botaoLerFotos').onclick = pedirLeitura;
   $('botaoNovaNota').onclick = abrirNovaNota;
   $('botaoCriarNota').onclick = criarNota;
+  $('novaLote').onchange = atualizarLote;
   $('vistaMenos').onclick = function() { mudarZoom(-1); };
   $('vistaMais').onclick = function() { mudarZoom(1); };
   $('vistaAjustar').onclick = function() { zoomDoc = 1; aplicarZoom(); };
