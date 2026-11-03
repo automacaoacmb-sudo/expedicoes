@@ -89,6 +89,10 @@
   .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   #carregando { text-align: center; color: var(--cor-texto-suave); padding: 40px 0; }
   h2.form { margin: 0 0 6px; font-size: 17px; }
+  .check { display: flex; gap: 10px; align-items: center; font-size: 14.5px; font-weight: 600; margin-top: 10px; cursor: pointer; }
+  .check input { width: 20px; height: 20px; flex: none; accent-color: var(--cor-primaria); }
+  .bloco-motivo { margin-top: 10px; }
+  details.opcional summary { cursor: pointer; font-weight: 700; color: var(--cor-primaria); font-size: 14px; margin-bottom: 12px; }
   @media (max-width: 420px) { .acoes-topo { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -122,7 +126,7 @@
 
   <section id="telaLista" hidden>
     <div class="acoes-topo" id="acoesPortal">
-      <button class="botao" id="botaoNovaNota">＋ Chegou uma nota</button>
+      <button class="botao" id="botaoNovaNota">＋ Novo recebimento</button>
       <button class="botao-sec" id="botaoSolicitar">❓ Chegou sem nota</button>
     </div>
     <div class="abas" id="abas"></div>
@@ -176,10 +180,19 @@
         <div class="campo">
           <label for="campoSc" class="req">Número da SC</label>
           <input type="text" id="campoSc" autocomplete="off" placeholder="SC que veio com a mercadoria">
+          <label class="check"><input type="checkbox" id="campoSemSc"> Veio sem SC</label>
+          <div class="bloco-motivo" id="campoBlocoMotivo" hidden>
+            <label for="campoMotivo" class="req">Por que veio sem SC?</label>
+            <textarea id="campoMotivo" placeholder="Explique (mínimo 10 letras)"></textarea>
+          </div>
         </div>
         <div class="campo">
           <label for="campoFrota" class="req">Frota</label>
           <input type="text" id="campoFrota" autocomplete="off" placeholder="Onde vai ser usado (ex.: Trator 12)">
+        </div>
+        <div class="campo">
+          <label class="check"><input type="checkbox" id="semNota"> Estou sem a nota fiscal</label>
+          <p class="dica">O conferente anexa a nota. Quando ela chegar aqui, já sai com o carimbo deste recebimento para imprimir.</p>
         </div>
       </div>
       <div class="campo">
@@ -194,19 +207,35 @@
   <section id="telaNovaNota" hidden>
     <div class="nav"><button class="link" data-voltar>← Voltar à lista</button></div>
     <div class="cartao">
-      <h2 class="form">＋ Chegou uma nota</h2>
-      <p class="dica" style="margin:0 0 14px">Para a nota que chegou direto na fazenda (com a mercadoria ou pelo fornecedor). Tire a foto ou anexe o PDF; os dados são lidos depois. Se ela já estiver na lista, não precisa mandar de novo.</p>
+      <h2 class="form">＋ Novo recebimento</h2>
+      <p class="dica" style="margin:0 0 14px">Chegou mercadoria direto na fazenda? Tire a foto da nota, OS ou pedido e confirme o recebimento aqui. Fornecedor, número e valor são lidos da foto depois. Se a nota já está na lista (veio pela expedição), confirme por lá.</p>
       <div class="campo">
-        <label for="nnArquivos" class="req">Foto(s) ou PDF da nota</label>
+        <label for="nnArquivos" class="req">Foto(s) ou PDF da NF / OS / pedido</label>
         <input type="file" id="nnArquivos" accept="image/*,application/pdf" multiple>
       </div>
-      <div class="campo"><label for="nnNF">Número da NF/OS</label><input type="text" id="nnNF" autocomplete="off"></div>
-      <div class="campo"><label for="nnFornecedor">Fornecedor</label><input type="text" id="nnFornecedor" autocomplete="off"></div>
-      <div class="campo"><label for="nnValor">Valor (R$)</label><input type="text" id="nnValor" inputmode="decimal" autocomplete="off"></div>
-      <div class="campo"><label for="nnObs">Observações</label><textarea id="nnObs"></textarea></div>
+      <div class="campo">
+        <label for="nnData" class="req">Data de recebimento</label>
+        <div class="linha-data"><input type="date" id="nnData"><button type="button" class="botao-sec" id="nnHoje">Hoje</button></div>
+      </div>
+      <div class="campo">
+        <label for="nnSc" class="req">Número da SC</label>
+        <input type="text" id="nnSc" autocomplete="off" placeholder="SC que veio com a mercadoria">
+        <label class="check"><input type="checkbox" id="nnSemSc"> Veio sem SC</label>
+        <div class="bloco-motivo" id="nnBlocoMotivo" hidden>
+          <label for="nnMotivo" class="req">Por que veio sem SC?</label>
+          <textarea id="nnMotivo" placeholder="Explique (mínimo 10 letras)"></textarea>
+        </div>
+      </div>
+      <div class="campo"><label for="nnFrota" class="req">Frota</label><input type="text" id="nnFrota" autocomplete="off" placeholder="Onde vai ser usado (ex.: Trator 12)"></div>
+      <div class="campo"><label for="nnObs">Observações</label><textarea id="nnObs" placeholder="Faltou item, avaria..."></textarea></div>
+      <details class="opcional">
+        <summary>Preencher dados da nota à mão (opcional)</summary>
+        <div class="campo"><label for="nnNF">Número da NF / OS / pedido</label><input type="text" id="nnNF" autocomplete="off"></div>
+        <div class="campo"><label for="nnFornecedor">Fornecedor</label><input type="text" id="nnFornecedor" autocomplete="off"></div>
+        <div class="campo"><label for="nnValor">Valor (R$)</label><input type="text" id="nnValor" inputmode="decimal" autocomplete="off"></div>
+      </details>
       <div class="erro-form" id="erroNovaNota" hidden></div>
-      <button class="botao" id="botaoEnviarNota" style="width:100%">Enviar nota ao conferente</button>
-      <p class="dica">Depois de enviada, ela aparece na lista para você confirmar o recebimento.</p>
+      <button class="botao" id="botaoEnviarNota" style="width:100%">Confirmar recebimento</button>
     </div>
   </section>
 
@@ -339,7 +368,7 @@
       const titulo = item.aguardandoNota ? 'Sem nota: ' + (item.obsSolicitacao || 'mercadoria recebida') : 'NF/OS ' + (item.notaFiscal || '(sem número)');
       info.appendChild(criar('div', 'titulo', titulo.length > 70 ? titulo.slice(0, 70) + '…' : titulo));
       info.appendChild(criar('div', 'detalhe', [item.fornecedor || (item.aguardandoNota ? '' : 'Fornecedor a confirmar'), item.valor !== null ? moeda(item.valor) : '', item.data, item.motorista ? 'Motorista ' + item.motorista : ''].filter(Boolean).join(' · ')));
-      if (item.aguardandoNota) info.appendChild(criar('div', 'detalhe', '⏳ esperando o conferente anexar a nota'));
+      if (item.notaPedida) info.appendChild(criar('div', 'detalhe', '⏳ esperando o conferente anexar a nota'));
       linha.appendChild(info);
       const lado = criar('div', 'lado');
       if (item.urgencia) lado.appendChild(criar('span', 'chip urgente', '🔥 Urgente'));
@@ -413,9 +442,15 @@
     situacao = r ? r.situacao : '';
     $('campoData').value = r && r.dataRecebimento ? r.dataRecebimento : '';
     $('campoData').max = hojeLocal();
-    $('campoSc').value = r ? r.sc : '';
+    const semSc = !!r && r.sc === SEM_SC;
+    const partes = semSc ? separarMotivo(r.obs) : { motivo: '', obs: r ? r.obs : '' };
+    $('campoSc').value = r && !semSc ? r.sc : '';
+    $('campoSemSc').checked = semSc;
+    $('campoMotivo').value = partes.motivo;
+    atualizarSemSc('campo');
+    $('semNota').checked = !!item.notaPedida;
     $('campoFrota').value = r ? r.frota : '';
-    $('campoObs').value = r ? r.obs : '';
+    $('campoObs').value = partes.obs;
     $('erroForm').hidden = true;
     $('jaRespondida').hidden = !r;
     if (r) $('jaRespondida').textContent = 'Respondida por ' + r.por + ' em ' + r.em + '. Pode alterar e salvar de novo.';
@@ -424,7 +459,8 @@
     $('blocoAnexo').hidden = true;
     atualizarSituacao();
     const bloqueada = item.baixada;
-    ['botaoSim', 'botaoNao', 'botaoOutra', 'campoData', 'campoSc', 'campoFrota', 'campoObs', 'botaoSalvar', 'botaoHoje'].forEach(id => { $(id).disabled = bloqueada; });
+    ['botaoSim', 'botaoNao', 'botaoOutra', 'campoData', 'campoSc', 'campoSemSc', 'campoMotivo', 'semNota', 'campoFrota', 'campoObs', 'botaoSalvar', 'botaoHoje'].forEach(id => { $(id).disabled = bloqueada; });
+    if (!bloqueada) atualizarSemSc('campo');
     if (bloqueada) { $('jaRespondida').hidden = false; $('jaRespondida').textContent = 'Esta nota já foi baixada pelo conferente. Para mudar algo, fale com ele.'; }
     mostrar('telaNota');
 
@@ -460,26 +496,59 @@
     if (campo) $(campo).focus();
   }
 
+  /* ---------- SC: número, ou "Veio sem SC" com o motivo (mínimo 10 letras) ---------- */
+  const SEM_SC = 'Sem SC';
+  const MIN_MOTIVO = 10;
+
+  function atualizarSemSc(p) {
+    const sem = $(p + 'SemSc').checked;
+    $(p + 'BlocoMotivo').hidden = !sem;
+    $(p + 'Sc').disabled = sem || $(p + 'SemSc').disabled;
+    if (sem) $(p + 'Sc').value = '';
+  }
+
+  // Devolve { sc, semSc, motivoSemSc } ou null (e mostra o erro).
+  function lerSc(p, caixa) {
+    if ($(p + 'SemSc').checked) {
+      const motivo = $(p + 'Motivo').value.trim();
+      if (motivo.length < MIN_MOTIVO) { erroEm(caixa, 'Explique por que veio sem SC (mínimo ' + MIN_MOTIVO + ' letras).', p + 'Motivo'); return null; }
+      return { sc: '', semSc: true, motivoSemSc: motivo };
+    }
+    const sc = $(p + 'Sc').value.trim();
+    if (!sc) { erroEm(caixa, 'Informe o número da SC, ou marque "Veio sem SC" e explique.', p + 'Sc'); return null; }
+    return { sc: sc, semSc: false, motivoSemSc: '' };
+  }
+
+  // A obs. gravada fica "Sem SC: motivo | obs" (igual ao servidor).
+  function juntarMotivo(s, obs) { return s.semSc ? SEM_SC + ': ' + s.motivoSemSc + (obs ? ' | ' + obs : '') : obs; }
+  function separarMotivo(obs) {
+    const m = /^Sem SC: ([\s\S]*?)(?: \| ([\s\S]*))?$/.exec(obs || '');
+    return m ? { motivo: m[1], obs: m[2] || '' } : { motivo: '', obs: obs || '' };
+  }
+
   async function salvar() {
     const item = atual;
     $('erroForm').hidden = true;
     if (!situacao) return erroEm('erroForm', 'Diga se a mercadoria chegou.');
     const envio = Object.assign(acesso(), { id: item.id, linha: item.linha, nome: nome(), situacao: situacao, obs: $('campoObs').value.trim() });
+    let sc = null;
     if (situacao === 'Recebido') {
       envio.dataRecebimento = $('campoData').value;
-      envio.sc = $('campoSc').value.trim();
       envio.frota = $('campoFrota').value.trim();
       if (!envio.dataRecebimento) return erroEm('erroForm', 'Informe a data de recebimento.', 'campoData');
       if (envio.dataRecebimento > hojeLocal()) return erroEm('erroForm', 'A data de recebimento não pode ser no futuro.', 'campoData');
-      if (!envio.sc) return erroEm('erroForm', 'Informe o número da SC.', 'campoSc');
+      sc = lerSc('campo', 'erroForm');
+      if (!sc) return;
       if (!envio.frota) return erroEm('erroForm', 'Informe a frota.', 'campoFrota');
+      Object.assign(envio, sc, { semNota: $('semNota').checked });
     }
     const botao = $('botaoSalvar');
     botao.disabled = true;
     botao.textContent = 'Salvando...';
     try {
       const r = await api('almoxResponder', envio);
-      item.resposta = { situacao: situacao, dataRecebimento: envio.dataRecebimento || '', sc: envio.sc || '', frota: envio.frota || '', obs: envio.obs, por: nome(), em: r.em };
+      item.resposta = { situacao: situacao, dataRecebimento: envio.dataRecebimento || '', sc: sc ? (sc.semSc ? SEM_SC : sc.sc) : '', frota: envio.frota || '', obs: sc ? juntarMotivo(sc, envio.obs) : envio.obs, por: nome(), em: r.em };
+      if (situacao === 'Recebido') item.notaPedida = envio.semNota;
       const proxima = visiveis.find(x => x !== item && !x.resposta && !x.baixada);
       if (!proxima) { mostrarLista(); aviso('Salvo ✓ Nenhuma nota esperando resposta. Obrigado!', true); }
       else { await abrirNota(proxima); aviso('Salvo ✓ Próxima nota:', true); }
@@ -516,9 +585,13 @@
     }
   }
 
-  /* ---------- Chegou uma nota / chegou sem nota ---------- */
+  /* ---------- Novo recebimento (já confirmado) / chegou sem nota ---------- */
   function abrirNovaNota() {
-    ['nnArquivos', 'nnNF', 'nnFornecedor', 'nnValor', 'nnObs'].forEach(id => { $(id).value = ''; });
+    ['nnArquivos', 'nnNF', 'nnFornecedor', 'nnValor', 'nnObs', 'nnSc', 'nnMotivo', 'nnFrota'].forEach(id => { $(id).value = ''; });
+    $('nnSemSc').checked = false;
+    atualizarSemSc('nn');
+    $('nnData').value = hojeLocal();
+    $('nnData').max = hojeLocal();
     $('erroNovaNota').hidden = true;
     aviso('', true);
     mostrar('telaNovaNota');
@@ -527,26 +600,33 @@
   async function enviarNovaNota() {
     const arquivos = $('nnArquivos').files;
     $('erroNovaNota').hidden = true;
-    if (!arquivos.length) return erroEm('erroNovaNota', 'Tire a foto ou anexe o PDF da nota.', 'nnArquivos');
+    if (!arquivos.length) return erroEm('erroNovaNota', 'Tire a foto ou anexe o PDF da nota, OS ou pedido.', 'nnArquivos');
+    const data = $('nnData').value;
+    if (!data) return erroEm('erroNovaNota', 'Informe a data de recebimento.', 'nnData');
+    if (data > hojeLocal()) return erroEm('erroNovaNota', 'A data de recebimento não pode ser no futuro.', 'nnData');
+    const sc = lerSc('nn', 'erroNovaNota');
+    if (!sc) return;
+    const frota = $('nnFrota').value.trim();
+    if (!frota) return erroEm('erroNovaNota', 'Informe a frota.', 'nnFrota');
     const valor = $('nnValor').value.trim();
     const botao = $('botaoEnviarNota');
     botao.disabled = true;
     botao.textContent = 'Enviando...';
     try {
       const lista = await lerArquivos(arquivos);
-      const r = await api('almoxEnviarNota', Object.assign(acesso(), {
-        nome: nome(), arquivos: lista,
-        dados: { notaFiscal: $('nnNF').value.trim(), fornecedor: $('nnFornecedor').value.trim(), obs: $('nnObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
+      const r = await api('almoxEnviarNota', Object.assign(acesso(), sc, {
+        nome: nome(), arquivos: lista, dataRecebimento: data, frota: frota, obs: $('nnObs').value.trim(),
+        dados: { notaFiscal: $('nnNF').value.trim(), fornecedor: $('nnFornecedor').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
       }), 180000);
-      abaAtual = 'responder';
+      abaAtual = 'respondida';
       await carregar(true);
       mostrarLista();
-      aviso('Nota enviada ao conferente ✓ Ela já está na lista para você confirmar o recebimento.' + (r.aviso ? ' ' + r.aviso : ''), true);
+      aviso('Recebimento registrado ✓ Está em "Respondidas". Fornecedor, número e valor são lidos da foto.' + (r.aviso ? ' ' + r.aviso : ''), true);
     } catch (e) {
       erroEm('erroNovaNota', e.message);
     } finally {
       botao.disabled = false;
-      botao.textContent = 'Enviar nota ao conferente';
+      botao.textContent = 'Confirmar recebimento';
     }
   }
 
@@ -590,7 +670,7 @@
   function carimboDe(item) {
     const r = item.resposta;
     if (!r || r.situacao !== 'Recebido') return null;
-    return ['RECEBIDO ' + (dados.fazenda ? '· ' + dados.fazenda : ''), dataBR(r.dataRecebimento), r.sc ? 'SC ' + r.sc : '', 'Frota ' + r.frota, 'por ' + r.por];
+    return ['RECEBIDO ' + (dados.fazenda ? '· ' + dados.fazenda : ''), dataBR(r.dataRecebimento), r.sc ? (r.sc === SEM_SC ? SEM_SC : 'SC ' + r.sc) : '', 'Frota ' + r.frota, 'por ' + r.por];
   }
 
   async function imprimirNotas(itens, botao) {
@@ -653,6 +733,9 @@
   $('botaoOutra').onclick = () => { situacao = 'Outra fazenda'; atualizarSituacao(); };
   $('botaoHoje').onclick = () => { $('campoData').value = hojeLocal(); };
   $('solHoje').onclick = () => { $('solData').value = hojeLocal(); };
+  $('nnHoje').onclick = () => { $('nnData').value = hojeLocal(); };
+  $('campoSemSc').onchange = () => atualizarSemSc('campo');
+  $('nnSemSc').onchange = () => atualizarSemSc('nn');
   $('botaoSalvar').onclick = salvar;
   $('botaoAnexarDoc').onclick = () => { $('anexoArquivos').value = ''; $('erroAnexo').hidden = true; $('blocoAnexo').hidden = false; };
   $('cancelarAnexo').onclick = () => { $('blocoAnexo').hidden = true; };
