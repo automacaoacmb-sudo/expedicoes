@@ -128,6 +128,7 @@ const Comum = (() => {
   /**
    * Imprime "folhas": cada uma com título, tabela de dados (pares rótulo/valor) e documentos
    * (fotos ou PDFs; o PDF vira uma imagem por página). Cada documento começa numa página nova.
+   * documento.carimbo = linhas de texto: sai como carimbo por cima da 1ª página (o arquivo original não muda).
    */
   async function imprimir(folhas) {
     let area = document.getElementById('areaImpressao');
@@ -150,18 +151,27 @@ const Comum = (() => {
       area.appendChild(folha);
       for (const doc of f.documentos || []) {
         const imagens = ehPdf(doc.src) ? await pdfParaImagens(doc.src) : [doc.src];
-        imagens.forEach(src => {
+        imagens.forEach((src, p) => {
           const pagina = criar('section', 'folha-doc');
           if (doc.legenda) pagina.appendChild(criar('div', 'legenda-doc', doc.legenda));
+          const caixa = criar('div', 'caixa-doc');
           const img = document.createElement('img');
           img.src = src;
-          pagina.appendChild(img);
+          caixa.appendChild(img);
+          if (p === 0 && doc.carimbo) caixa.appendChild(carimbo(doc.carimbo));
+          pagina.appendChild(caixa);
           area.appendChild(pagina);
         });
       }
     }
     await Promise.all(Array.from(area.querySelectorAll('img')).map(img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
     window.print();
+  }
+
+  function carimbo(linhas) {
+    const c = criar('div', 'carimbo');
+    linhas.filter(Boolean).forEach((t, i) => c.appendChild(criar(i === 0 ? 'b' : 'div', '', t)));
+    return c;
   }
 
   // estilo da impressão (só a área de impressão vai para o papel)
@@ -179,7 +189,14 @@ const Comum = (() => {
       #areaImpressao .tabela-impressao th { width: 32%; background: #eee; }
       #areaImpressao .folha-doc { page-break-before: always; break-before: page; }
       #areaImpressao .legenda-doc { margin-bottom: 6px; font-size: 11px; }
-      #areaImpressao .folha-doc img { max-width: 100%; max-height: 250mm; }
+      #areaImpressao .folha-doc img { max-width: 100%; max-height: 250mm; display: block; }
+      #areaImpressao .caixa-doc { position: relative; display: inline-block; max-width: 100%; }
+      #areaImpressao .carimbo {
+        position: absolute; top: 14mm; right: 6mm; transform: rotate(-6deg); padding: 6px 12px; text-align: center;
+        border: 3px double #1d4ed8; border-radius: 6px; color: #1d4ed8; background: rgba(255,255,255,0.55);
+        font: 12px/1.35 Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+      #areaImpressao .carimbo b { display: block; font-size: 14px; letter-spacing: 1px; }
       #areaImpressao .folha + .folha { page-break-before: always; break-before: page; }
     }`;
   document.head.appendChild(estilo);
