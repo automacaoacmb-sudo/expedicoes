@@ -893,7 +893,7 @@
   function carimboDe(item) {
     const r = item.resposta;
     if (!r || r.situacao !== 'Recebido') return null;
-    return ['RECEBIDO ' + (dados.fazenda ? '· ' + dados.fazenda : ''), dataBR(r.dataRecebimento), r.sc ? (r.sc === SEM_SC ? SEM_SC : 'SC ' + r.sc) : '', 'Frota ' + r.frota, 'por ' + r.por];
+    return ['RECEBIDO ' + (dados.fazenda ? '· ' + dados.fazenda : ''), dataBR(r.dataRecebimento), r.sc ? (r.sc === SEM_SC ? SEM_SC : 'SC ' + r.sc) : '', 'Frota ' + r.frota, 'por ' + r.por, Comum.obsCarimbo(r.obs)];
   }
 
   async function imprimirNotas(itens, botao) {
