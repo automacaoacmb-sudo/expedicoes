@@ -39,7 +39,17 @@
   .botao-sec { border: 1.5px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .tabela-wrap { flex: 1; min-height: 120px; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 10px; overflow: auto; }
   table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
-  thead th { position: sticky; top: 0; background: var(--cor-primaria); color: #fff; text-align: left; padding: 8px; white-space: nowrap; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  thead th { background: var(--cor-primaria); color: #fff; text-align: left; padding: 8px; white-space: nowrap; }
+  thead tr.filtros th { padding: 0 6px 6px; }
+  thead tr.filtros input { width: 100%; min-width: 60px; font: inherit; font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.95); color: #1c2620; }
+  th.sel, td.sel { width: 30px; text-align: center; }
+  th.sel input, td.sel input { width: 16px; height: 16px; cursor: pointer; accent-color: #c2410c; }
+  tbody tr.selecionada td { background: rgba(194,65,12,0.10) !important; }
+  .selecao { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; padding: 4px 10px; border-radius: 8px; background: rgba(194,65,12,0.10); }
+  .botao-sec.urgente { border-color: #c2410c; color: #c2410c; }
+  .link-sec { background: none; border: none; color: var(--cor-texto-suave); text-decoration: underline; cursor: pointer; font: inherit; font-size: 12.5px; }
+  .sub.duplicada { color: #b45309; font-weight: 700; }
   tbody td { padding: 7px 8px; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
   tbody tr:nth-child(even) td { background: var(--cor-zebra); }
   td.num { text-align: right; white-space: nowrap; }
@@ -117,14 +127,20 @@
       <select id="filtroEtapa"><option value="">Todas as etapas</option></select>
       <label><input type="checkbox" id="soMinhas"> Só as que eu anexei</label>
       <span class="info" id="info"></span>
+      <span class="selecao" id="barraSelecao" hidden>
+        <b id="contaSelecao"></b>
+        <button class="botao-sec urgente" id="botaoUrgenciaLote">🔥 Pedir urgência</button>
+        <button class="botao-sec" id="botaoTirarUrgenciaLote">Tirar urgência</button>
+        <button class="link-sec" id="botaoLimparSelecao">limpar seleção</button>
+      </span>
       <span style="flex:1"></span>
       <button class="botao" id="botaoAnexar">＋ Anexar nota que não está na lista</button>
       <button class="botao-sec" id="botaoAtualizar">↻ Atualizar</button>
     </div>
     <div class="tabela-wrap">
       <table>
-        <thead><tr><th>Data</th><th>Fazenda</th><th>NF</th><th>OS</th><th>Fornecedor</th><th style="text-align:right">Valor</th><th>Etapa</th><th>Processo</th></tr></thead>
-        <tbody id="corpo"><tr><td colspan="8" class="vazio">Carregando...</td></tr></tbody>
+        <thead id="cabecalho"></thead>
+        <tbody id="corpo"><tr><td colspan="9" class="vazio">Carregando...</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -204,7 +220,7 @@
       $('corpo').innerHTML = '';
       const tr = criar('tr');
       const td = criar('td', 'vazio', e.message);
-      td.colSpan = 8;
+      td.colSpan = 9;
       tr.appendChild(td);
       $('corpo').appendChild(tr);
     }
@@ -214,36 +230,115 @@
     return [i.data, i.fazenda, i.notaFiscal, i.fornecedor, i.sc, i.etapa, i.origem, i.solicitadoPor, i.almox.frota, i.almox.por, i.obsSolicitacao].join(' ');
   }
 
+  /* ---------- Colunas com filtro digitado (como na Conferência) ---------- */
+  // "Com NF: Não" = OS; Sim ou em branco = NF
+  const ehOs = i => i.comNf === 'Não';
+  const COLUNAS = [
+    { chave: 'data', titulo: 'Data', texto: i => i.data },
+    { chave: 'fazenda', titulo: 'Fazenda', texto: i => i.fazenda },
+    { chave: 'nf', titulo: 'NF', texto: i => ehOs(i) ? '' : i.notaFiscal + ' ' + (i.origem !== 'Expedição' ? i.origem + ' ' + i.solicitadoPor : '') },
+    { chave: 'os', titulo: 'OS', texto: i => ehOs(i) ? i.notaFiscal : '' },
+    { chave: 'fornecedor', titulo: 'Fornecedor', texto: i => i.fornecedor },
+    { chave: 'valor', titulo: 'Valor', direita: true, texto: i => i.valor === null ? '' : moeda(i.valor) + ' ' + Number(i.valor).toFixed(2).replace('.', ',') },
+    { chave: 'etapa', titulo: 'Etapa', texto: i => [i.etapa, i.almox.situacao, i.almox.frota, i.almox.por, i.urgencia ? 'urgente ' + i.urgencia : '', i.duplicadaDe.length ? 'duplicada' : ''].join(' ') },
+    { chave: null, titulo: 'Processo' }
+  ];
+  const filtros = {};
+  const selecionadas = new Set(); // chaves "id|linha"
+  const chaveDe = i => i.id + '|' + i.linha;
+  let visiveis = [];
+
+  function montarCabecalho() {
+    const cab = $('cabecalho');
+    cab.innerHTML = '';
+    const t1 = criar('tr'), t2 = criar('tr', 'filtros');
+    const thSel = criar('th', 'sel');
+    const todas = document.createElement('input');
+    todas.type = 'checkbox';
+    todas.id = 'selecionarTodas';
+    todas.title = 'Selecionar todas as notas visíveis (não baixadas)';
+    todas.onchange = () => {
+      visiveis.filter(i => i.etapa !== 'Baixada').forEach(i => { if (todas.checked) selecionadas.add(chaveDe(i)); else selecionadas.delete(chaveDe(i)); });
+      desenhar();
+    };
+    thSel.appendChild(todas);
+    t1.appendChild(thSel);
+    t2.appendChild(criar('th', 'sel'));
+    COLUNAS.forEach(c => {
+      const th = criar('th', '', c.titulo);
+      if (c.direita) th.style.textAlign = 'right';
+      t1.appendChild(th);
+      const f = criar('th');
+      if (c.chave) {
+        const campo = document.createElement('input');
+        campo.type = 'search';
+        campo.placeholder = 'filtrar...';
+        campo.setAttribute('aria-label', 'Filtrar ' + c.titulo);
+        campo.oninput = () => { filtros[c.chave] = campo.value; desenhar(); };
+        f.appendChild(campo);
+      }
+      t2.appendChild(f);
+    });
+    cab.appendChild(t1);
+    cab.appendChild(t2);
+  }
+
+  function atualizarSelecao() {
+    // tira da seleção o que já foi baixado ou sumiu da lista
+    const validas = new Set(itens.filter(i => i.etapa !== 'Baixada').map(chaveDe));
+    Array.from(selecionadas).forEach(k => { if (!validas.has(k)) selecionadas.delete(k); });
+    $('barraSelecao').hidden = !selecionadas.size;
+    $('contaSelecao').textContent = selecionadas.size + ' selecionada(s)';
+    const marcaveis = visiveis.filter(i => i.etapa !== 'Baixada');
+    const todas = $('selecionarTodas');
+    if (todas) {
+      const marcadas = marcaveis.filter(i => selecionadas.has(chaveDe(i))).length;
+      todas.checked = marcaveis.length > 0 && marcadas === marcaveis.length;
+      todas.indeterminate = marcadas > 0 && marcadas < marcaveis.length;
+    }
+  }
+
   function desenhar() {
     const busca = normalizar($('busca').value.trim());
     const etapa = $('filtroEtapa').value;
     const minhas = $('soMinhas').checked;
-    const visiveis = itens.filter(i =>
+    const ativos = COLUNAS.filter(c => c.chave && (filtros[c.chave] || '').trim()).map(c => [c, normalizar(filtros[c.chave].trim())]);
+    visiveis = itens.filter(i =>
       (!etapa || i.etapa === etapa) &&
       (!minhas || normalizar(i.solicitadoPor) === normalizar(nome())) &&
-      (!busca || normalizar(textoItem(i)).indexOf(busca) !== -1));
+      (!busca || normalizar(textoItem(i)).indexOf(busca) !== -1) &&
+      ativos.every(par => normalizar(par[0].texto(i)).indexOf(par[1]) !== -1));
     $('info').textContent = visiveis.length + ' de ' + itens.length + ' nota(s)';
 
     const corpo = $('corpo');
     corpo.innerHTML = '';
+    atualizarSelecao();
     if (!visiveis.length) {
       const tr = criar('tr');
       const td = criar('td', 'vazio', itens.length ? 'Nenhuma nota com esse filtro. Se a nota não existe, use "Anexar nota que não está na lista".' : 'Nenhuma nota ainda.');
-      td.colSpan = 8;
+      td.colSpan = 9;
       tr.appendChild(td);
       corpo.appendChild(tr);
       return;
     }
     visiveis.forEach(i => {
-      const tr = criar('tr');
+      const tr = criar('tr', selecionadas.has(chaveDe(i)) ? 'selecionada' : '');
+      const tdSel = criar('td', 'sel');
+      if (i.etapa !== 'Baixada') {
+        const cx = document.createElement('input');
+        cx.type = 'checkbox';
+        cx.checked = selecionadas.has(chaveDe(i));
+        cx.setAttribute('aria-label', 'Selecionar nota #' + i.id);
+        cx.onchange = () => { if (cx.checked) selecionadas.add(chaveDe(i)); else selecionadas.delete(chaveDe(i)); tr.className = cx.checked ? 'selecionada' : ''; atualizarSelecao(); };
+        tdSel.appendChild(cx);
+      }
+      tr.appendChild(tdSel);
       tr.appendChild(criar('td', '', i.data));
       tr.appendChild(criar('td', '', i.fazenda || '—'));
-      // "Com NF: Não" = OS; Sim ou em branco = NF
-      const ehOs = i.comNf === 'Não';
-      const nf = criar('td', '', ehOs ? '—' : (i.notaFiscal || '—'));
+      const nf = criar('td', '', ehOs(i) ? '—' : (i.notaFiscal || '—'));
       if (i.origem !== 'Expedição') nf.appendChild(criar('span', 'sub', i.origem + (i.solicitadoPor ? ' · ' + i.solicitadoPor : '')));
       tr.appendChild(nf);
-      tr.appendChild(criar('td', '', ehOs ? (i.notaFiscal || '—') : '—'));
+      tr.appendChild(criar('td', '', ehOs(i) ? (i.notaFiscal || '—') : '—'));
       tr.appendChild(criar('td', '', i.fornecedor || '—'));
       tr.appendChild(criar('td', 'num', moeda(i.valor)));
       const tdEtapa = criar('td');
@@ -253,6 +348,7 @@
       else if (a.situacao) tdEtapa.appendChild(criar('span', 'sub alerta', a.situacao + (a.obs ? ' · ' + a.obs : '')));
       if (i.scDivergente) tdEtapa.appendChild(criar('span', 'sub alerta', 'SC informada diferente da declarada'));
       if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '🔥 Urgente: ' + i.urgencia));
+      if (i.duplicadaDe.length) tdEtapa.appendChild(criar('span', 'sub duplicada', '⚠ possível duplicada de #' + i.duplicadaDe.join(', #') + ' (o conferente verifica)'));
       tr.appendChild(tdEtapa);
       const tdAcao = criar('td');
       const pronto = i.etapa === 'Baixada';
@@ -288,6 +384,42 @@
       aviso(e.message, false);
       botao.disabled = false;
     }
+  }
+
+  // Urgência em lote: um motivo para todas as selecionadas; uma chamada por nota, mostrando o andamento.
+  async function urgenciaEmLote(cancelar) {
+    const alvo = itens.filter(i => selecionadas.has(chaveDe(i)) && i.etapa !== 'Baixada' && (cancelar ? i.urgencia : !i.urgencia));
+    if (!alvo.length) { aviso(cancelar ? 'Nenhuma das selecionadas está com urgência.' : 'Todas as selecionadas já estão com urgência.', false); return; }
+    let motivo = '';
+    if (!cancelar) {
+      motivo = window.prompt('Pedir urgência para ' + alvo.length + ' nota(s). Por que é urgente? (opcional, ex.: vence amanhã)', '');
+      if (motivo === null) return;
+    }
+    ['botaoUrgenciaLote', 'botaoTirarUrgenciaLote'].forEach(id => { $(id).disabled = true; });
+    const falhas = [];
+    for (let k = 0; k < alvo.length; k++) {
+      const i = alvo[k];
+      aviso((cancelar ? 'Tirando urgência ' : 'Pedindo urgência ') + (k + 1) + ' de ' + alvo.length + '...', true);
+      try {
+        const r = await api('finUrgencia', { token: chave, id: i.id, linha: i.linha, nome: nome(), motivo: motivo, cancelar: cancelar });
+        i.urgencia = r.urgencia;
+      } catch (e) { falhas.push('#' + i.id + ' (' + e.message + ')'); }
+    }
+    ['botaoUrgenciaLote', 'botaoTirarUrgenciaLote'].forEach(id => { $(id).disabled = false; });
+    const feitas = alvo.length - falhas.length;
+    if (falhas.length) aviso(feitas + ' de ' + alvo.length + ' feitas. Não foram: ' + falhas.join('; '), false);
+    else {
+      aviso(cancelar ? 'Urgência retirada de ' + feitas + ' nota(s).' : 'Urgência marcada em ' + feitas + ' nota(s): o conferente e o almoxarifado veem em destaque.', true);
+      selecionadas.clear();
+    }
+    desenhar();
+  }
+
+  // Antes de anexar: se o número digitado já está na lista, avisa e mostra onde.
+  function parecidasNaLista(numero) {
+    const n = String(numero || '').replace(/\D/g, '').replace(/^0+/, '');
+    if (n.length < 3) return [];
+    return itens.filter(i => String(i.notaFiscal || '').replace(/\D/g, '').replace(/^0+/, '') === n);
   }
 
   function limparBlobs() { urlsBlob.forEach(u => URL.revokeObjectURL(u)); urlsBlob = []; }
@@ -402,7 +534,20 @@
     }
   }
 
+  let confirmouDuplicada = false;
+
+  // Mostra, enquanto digita o número, as notas da lista com o mesmo número.
+  function avisarParecidas() {
+    const msg = $('anexoAviso');
+    const achadas = parecidasNaLista($('anexoNF').value);
+    if (!achadas.length) { if (msg.classList.contains('duplicada')) { msg.textContent = ''; msg.className = 'aviso-modal'; } return; }
+    msg.className = 'aviso-modal erro duplicada';
+    msg.textContent = '⚠ Esse número já está na lista: ' + achadas.slice(0, 5).map(i => '#' + i.id + ' · ' + (i.fazenda || 'sem fazenda') + ' · ' + i.data + ' · ' + (i.fornecedor || 'fornecedor a ler') + ' · ' + i.etapa).join(' | ') +
+      (achadas.length > 5 ? ' (e mais ' + (achadas.length - 5) + ')' : '') + '. Se for a mesma nota, não precisa anexar: acompanhe por lá.';
+  }
+
   function abrirAnexar() {
+    confirmouDuplicada = false;
     const sel = $('anexoFazenda');
     sel.innerHTML = '';
     [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Escolha a fazenda...'); o.value = f; sel.appendChild(o); });
@@ -456,6 +601,13 @@
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
     if (!$('anexoFazenda').value) { msg.className = 'aviso-modal erro'; msg.textContent = 'Escolha a fazenda.'; $('anexoFazenda').focus(); return; }
     if ($('anexoLote').checked) { enviarEmLote(Array.from(arquivos)); return; }
+    // número que já está na lista: pede um segundo clique ("Enviar mesmo assim")
+    if (parecidasNaLista($('anexoNF').value).length && !confirmouDuplicada) {
+      confirmouDuplicada = true;
+      avisarParecidas();
+      $('botaoEnviarAnexo').textContent = 'Enviar mesmo assim';
+      return;
+    }
     const valor = $('anexoValor').value.trim();
     const botao = $('botaoEnviarAnexo');
     botao.disabled = true;
@@ -480,6 +632,7 @@
 
   function iniciar() {
     ETAPAS.forEach(e => { const o = criar('option', '', e); o.value = e; $('filtroEtapa').appendChild(o); });
+    montarCabecalho();
     if (!chave) { aviso('Link incompleto. Peça o link do financeiro a quem administra a planilha.', false); return; }
     if (!nome()) { $('telaNome').hidden = false; return; }
     mostrarQuem();
@@ -503,6 +656,10 @@
   $('botaoAnexar').onclick = abrirAnexar;
   $('botaoEnviarAnexo').onclick = enviarAnexo;
   $('anexoLote').onchange = atualizarLote;
+  $('anexoNF').oninput = () => { confirmouDuplicada = false; atualizarLote(); avisarParecidas(); };
+  $('botaoUrgenciaLote').onclick = () => urgenciaEmLote(false);
+  $('botaoTirarUrgenciaLote').onclick = () => urgenciaEmLote(true);
+  $('botaoLimparSelecao').onclick = () => { selecionadas.clear(); desenhar(); };
   $('botaoImprimir').onclick = imprimirProcesso;
   document.querySelectorAll('[data-fechar]').forEach(b => { b.onclick = () => { $(b.dataset.fechar).hidden = true; limparBlobs(); }; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('modalProcesso').hidden = true; $('modalAnexar').hidden = true; } });
