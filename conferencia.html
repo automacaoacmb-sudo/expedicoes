@@ -264,6 +264,8 @@
   .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
   .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
+  .chip-duplicadas { border-color: #b45309; color: #b45309; }
+  .chip-duplicadas.ativo { background: #b45309; border-color: #b45309; color: #fff; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-transform: none; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -520,6 +522,7 @@
 
 <script>
   const COLUNAS = [
+    { chave: 'id', titulo: 'Nº', tipo: 'numero', alinhar: 'centro' },
     { chave: 'fazenda', titulo: 'Fazenda' },
     { chave: 'dataTs', titulo: 'Data', tipo: 'numero', alinhar: 'centro' },
     { chave: 'nfNumero', titulo: 'NF', alinhar: 'centro' },
@@ -548,6 +551,8 @@
   const ordenacao = { pendentes: { chave: 'dataTs', dir: 1 }, resolvidas: { chave: 'confTs', dir: -1 } }; // mais antigas primeiro = vermelhos primeiro
   const filtros = { pendentes: {}, resolvidas: {} };
   let filtroEtapa = '';
+  let filtroDuplicadas = false; // botão "⚠ Possíveis duplicadas": mostra só elas, para tratar à parte
+  let atualizando = false;      // mostrando a lista guardada no aparelho enquanto a nova chega
   let filtroOrigem = '';
   const ROTULO_ORIGEM = { 'Contas a Pagar': '💰 Financeiro', 'Almoxarifado': '📦 Almoxarifado', 'Conferente': '✍ Conferente', 'Expedição': '🚚 Expedição' };
   const ORDEM_ORIGENS = ['Contas a Pagar', 'Almoxarifado', 'Conferente', 'Expedição'];
@@ -640,12 +645,33 @@
     });
   }
 
+  // Última lista recebida, guardada no aparelho: aparece na hora ao abrir, enquanto a nova chega.
+  const CHAVE_CACHE = 'exp_conf_lista';
+  function lerCache() { try { return JSON.parse(localStorage.getItem(CHAVE_CACHE)); } catch (e) { return null; } }
+  function gravarCache(r) { try { localStorage.setItem(CHAVE_CACHE, JSON.stringify(r)); } catch (e) { /* sem espaço: só não guarda */ } }
+  let primeiraCarga = true;
+
   function carregar() {
-    $('carregando').textContent = 'Carregando...';
-    $('carregando').hidden = false;
+    const guardada = primeiraCarga ? lerCache() : null;
+    primeiraCarga = false;
+    if (guardada && guardada.pendentes) {
+      dados = guardada;
+      dados.pendentes.forEach(prepararItem);
+      dados.resolvidas.forEach(prepararItem);
+      atualizando = true;
+      $('carregando').hidden = true;
+      $('tabelaWrap').hidden = false;
+      mostrarStatusLeitura(dados.meta.leitura);
+      desenhar();
+    } else {
+      $('carregando').textContent = 'Carregando...';
+      $('carregando').hidden = false;
+    }
     google.script.run
       .withSuccessHandler(function(resposta) {
-        dados = resposta;
+        gravarCache(resposta);
+        atualizando = false;
+        dados = JSON.parse(JSON.stringify(resposta));
         dados.pendentes.forEach(prepararItem);
         dados.resolvidas.forEach(prepararItem);
         // seleção sobrevive a uma atualização se a nota continuar pendente
@@ -658,7 +684,10 @@
         mostrarStatusLeitura(dados.meta.leitura);
         desenhar();
       })
-      .withFailureHandler(function(erro) { $('carregando').textContent = 'Erro ao carregar: ' + erro.message; })
+      .withFailureHandler(function(erro) {
+        if (atualizando) { atualizando = false; atualizarLista(); mostrarAviso('Não consegui atualizar a lista (' + erro.message + '). Mostrando a última recebida.', false); return; }
+        $('carregando').textContent = 'Erro ao carregar: ' + erro.message;
+      })
       .getLancamentosConferencia();
   }
 
@@ -675,13 +704,14 @@
   }
 
   function textoBusca(item) {
-    return [item.fazenda, item.fornecedor, item.notaFiscal, item.sc, item.motorista, item.comNf, item.obsEnvio, item.obsConferencia, item.data, item.leitura, item.etapaTexto, item.obsSolicitacao].join(' ');
+    return [item.id, item.lancadoPor, item.fazenda, item.fornecedor, item.notaFiscal, item.sc, item.motorista, item.comNf, item.obsEnvio, item.obsConferencia, item.data, item.leitura, item.etapaTexto, item.obsSolicitacao].join(' ');
   }
 
   function textoDaColuna(item, chave) {
     switch (chave) {
       case 'dataTs': return item.data;
       case 'valor': return item.valor === null ? '' : formatarValor(item.valor) + ' ' + Number(item.valor).toFixed(2).replace('.', ',');
+      case 'motorista': return item.motorista + ' ' + (item.lancadoPor || '');
       case 'nfNumero': return item.nfNumero;
       case 'osNumero': return item.osNumero;
       case 'fornecedor': return item.fornecedor + ' ' + item.obsEnvio;
@@ -692,7 +722,7 @@
     }
   }
 
-  function calcularVisiveis(semFiltroEtapa, semFiltroOrigem) {
+  function calcularVisiveis(semFiltroEtapa, semFiltroOrigem, semFiltroDuplicadas) {
     const f = filtros[abaAtual];
     const ativos = Object.keys(f)
       .filter(function(chave) { return f[chave].trim() !== ''; })
@@ -706,6 +736,7 @@
       .filter(function(item) {
         if (!semFiltroEtapa && filtroEtapa && abaAtual === 'pendentes' && item.etapa !== filtroEtapa) return false;
         if (!semFiltroOrigem && filtroOrigem && (item.origem || 'Expedição') !== filtroOrigem) return false;
+        if (!semFiltroDuplicadas && filtroDuplicadas && !(item.duplicadaDe && item.duplicadaDe.length)) return false;
         for (let i = 0; i < ativos.length; i++) {
           if (normalizar(textoDaColuna(item, ativos[i][0])).indexOf(ativos[i][1]) === -1) return false;
         }
@@ -724,6 +755,7 @@
     if (abaAtual === 'resolvidas' && dados.totalResolvidas > dados.resolvidas.length) {
       info = visiveis.length + ' de ' + dados.resolvidas.length + ' — as baixadas mais recentes, de ' + dados.totalResolvidas + ' no total (o Excel leva todas).';
     }
+    if (atualizando) info += ' · ⏳ mostrando a última lista, atualizando...';
     $('infoLista').textContent = info;
     desenharChips();
     desenharCorpo(visiveis);
@@ -768,6 +800,14 @@
     area.hidden = false;
     const contagem = {};
     calcularVisiveis(true).forEach(function(i) { contagem[i.etapa] = (contagem[i.etapa] || 0) + 1; });
+    // possíveis duplicadas primeiro: um clique mostra só elas
+    const nDup = calcularVisiveis(false, false, true).filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length;
+    if (nDup || filtroDuplicadas) {
+      const dup = criar('button', 'chip-filtro chip-duplicadas' + (filtroDuplicadas ? ' ativo' : ''), '⚠ Possíveis duplicadas (' + nDup + ')');
+      dup.title = 'Mostrar só as notas que podem ser a mesma (mesmo número e mesmo fornecedor ou valor). Abra a nota e use "Juntar".';
+      dup.onclick = function() { filtroDuplicadas = !filtroDuplicadas; atualizarLista(); };
+      area.appendChild(dup);
+    }
     const todas = criar('button', 'chip-filtro' + (filtroEtapa === '' ? ' ativo' : ''), 'Todas as etapas');
     todas.onclick = function() { filtroEtapa = ''; atualizarLista(); };
     area.appendChild(todas);
@@ -835,6 +875,7 @@
     filtros[abaAtual] = {};
     filtroEtapa = '';
     filtroOrigem = '';
+    filtroDuplicadas = false;
     $('busca').value = '';
     desenhar();
   }
@@ -923,6 +964,10 @@
           break;
         case 'valor':
           td = celulaDado(item, 'valor', 'num', item.valor === null ? '' : formatarValor(item.valor));
+          break;
+        case 'motorista':
+          td = celulaDado(item, 'motorista', '', item.motorista);
+          if (item.lancadoPor) td.appendChild(sub('lançado por ' + item.lancadoPor));
           break;
         case 'leitura':
           td = criarCelulaDocumentos(item);
@@ -1120,6 +1165,21 @@
       .marcarImpressoConferencia(item.id, item.linha);
   }
 
+  // Enquanto a pessoa olha uma nota, já busca os documentos das 2 seguintes da lista (abrem na hora).
+  let precarregando = false;
+  async function precarregarProximos(item) {
+    if (precarregando) return;
+    precarregando = true;
+    try {
+      const lista = calcularVisiveis(false);
+      const i = lista.indexOf(item);
+      const proximas = lista.slice(i + 1, i + 3).filter(function(x) { return (x.numFotos || x.numPedido) && !cacheDocs[chaveItem(x)]; });
+      for (const x of proximas) { try { await buscarDocs(x); } catch (e) { /* abre normalmente depois */ } }
+      const chaves = Object.keys(cacheDocs);
+      while (chaves.length > 8) delete cacheDocs[chaves.shift()]; // não acumula fotos demais na memória
+    } finally { precarregando = false; }
+  }
+
   function buscarDocs(item) {
     if (cacheDocs[chaveItem(item)]) return Promise.resolve(cacheDocs[chaveItem(item)]);
     return new Promise(function(res, rej) {
@@ -1199,23 +1259,36 @@
     const marcar = !item.conferido;
     if (marcar && !item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa.\n\nDar baixa mesmo assim?')) return;
     const texto = area ? area.value : item.obsConferencia;
-    botao.disabled = true;
+    // a tela muda na hora; o servidor grava em segundo plano (se falhar, a nota volta e aparece o aviso)
+    const antes = { conferido: item.conferido, dataConferencia: item.dataConferencia, confTs: item.confTs, etapa: item.etapa, obsConferencia: item.obsConferencia };
+    item.obsConferencia = texto;
+    item.conferido = marcar;
+    item.dataConferencia = marcar ? 'gravando...' : '';
+    item.confTs = marcar ? Date.now() : 0;
+    item.etapa = marcar ? 'Baixada' : item.etapa;
+    prepararItem(item);
+    selecionados.delete(chaveItem(item));
+    moverItem(item, marcar);
+    desenhar();
     salvamentosPendentes++;
+    const desfazer = function(msg) {
+      Object.keys(antes).forEach(function(k) { item[k] = antes[k]; });
+      prepararItem(item);
+      moverItem(item, !marcar);
+      desenhar();
+      mostrarAviso('Não gravou a ' + (marcar ? 'baixa' : 'volta') + ' da nota #' + item.id + ': ' + msg, false);
+    };
     google.script.run
       .withSuccessHandler(function(resposta) {
         salvamentosPendentes--;
-        if (!resposta.ok) { botao.disabled = false; mostrarAviso(resposta.mensagem, false); return; }
-        item.obsConferencia = texto;
-        item.conferido = marcar;
+        if (!resposta.ok) { desfazer(resposta.mensagem); return; }
         item.dataConferencia = resposta.dataConferencia;
         item.confTs = resposta.confTs;
         item.etapa = resposta.etapa;
         prepararItem(item);
-        selecionados.delete(chaveItem(item));
-        moverItem(item, marcar);
         desenhar();
       })
-      .withFailureHandler(function(erro) { salvamentosPendentes--; botao.disabled = false; mostrarAviso('Erro: ' + erro.message, false); })
+      .withFailureHandler(function(erro) { salvamentosPendentes--; desfazer(erro.message); })
       .marcarConferido(item.id, marcar, texto, item.linha);
   }
 
@@ -1520,7 +1593,7 @@
     desativarBaixar();
     atualizarAbasDocs();
     if (!item.numFotos && !item.numPedido) { mostrarDocs(); return; }
-    if (cacheDocs[chaveItem(item)]) { docsAtuais = cacheDocs[chaveItem(item)]; mostrarDocs(); return; }
+    if (cacheDocs[chaveItem(item)]) { docsAtuais = cacheDocs[chaveItem(item)]; mostrarDocs(); precarregarProximos(item); return; }
     area.textContent = 'Carregando documentos...';
     google.script.run
       .withSuccessHandler(function(r) {
@@ -1531,6 +1604,7 @@
         cacheDocs[chaveItem(item)] = { nota: r.nota, pedido: r.pedido };
         docsAtuais = cacheDocs[chaveItem(item)];
         mostrarDocs();
+        precarregarProximos(item);
       })
       .withFailureHandler(function(erro) { if (notaItem === item) area.textContent = 'Erro ao carregar: ' + erro.message; })
       .getDocumentosLancamento(item.id, item.linha);
