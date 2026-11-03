@@ -158,7 +158,7 @@ const Comum = (() => {
           const img = document.createElement('img');
           img.src = src;
           caixa.appendChild(img);
-          if (p === 0 && doc.carimbo) caixa.appendChild(carimbo(doc.carimbo));
+          if (p === 0 && doc.carimbo) { caixa.classList.add('com-carimbo'); caixa.appendChild(carimbo(doc.carimbo)); }
           pagina.appendChild(caixa);
           area.appendChild(pagina);
         });
@@ -168,10 +168,17 @@ const Comum = (() => {
     window.print();
   }
 
+  // linhas: a 1ª é o título; uma linha que começa com "Obs.:" sai menor e alinhada à esquerda
   function carimbo(linhas) {
     const c = criar('div', 'carimbo');
-    linhas.filter(Boolean).forEach((t, i) => c.appendChild(criar(i === 0 ? 'b' : 'div', '', t)));
+    linhas.filter(Boolean).forEach((t, i) => c.appendChild(criar(i === 0 ? 'b' : 'div', /^Obs\.:/.test(t) ? 'obs' : '', t)));
     return c;
+  }
+
+  // Texto da observação para o carimbo (cortado para caber).
+  function obsCarimbo(obs) {
+    const t = String(obs || '').replace(/\s+/g, ' ').trim();
+    return t ? 'Obs.: ' + (t.length > 220 ? t.slice(0, 220) + '…' : t) : '';
   }
 
   // estilo da impressão (só a área de impressão vai para o papel)
@@ -190,16 +197,19 @@ const Comum = (() => {
       #areaImpressao .folha-doc { page-break-before: always; break-before: page; }
       #areaImpressao .legenda-doc { margin-bottom: 6px; font-size: 11px; }
       #areaImpressao .folha-doc img { max-width: 100%; max-height: 250mm; display: block; }
-      #areaImpressao .caixa-doc { position: relative; display: inline-block; max-width: 100%; }
+      /* com carimbo: a nota encolhe um pouco e o carimbo vai embaixo, à direita, sem cobrir nada */
+      #areaImpressao .caixa-doc { display: flex; flex-direction: column; align-items: flex-start; max-width: 100%; break-inside: avoid; }
+      #areaImpressao .caixa-doc.com-carimbo img { max-height: 205mm; }
       #areaImpressao .carimbo {
-        position: absolute; top: 14mm; right: 6mm; transform: rotate(-6deg); padding: 6px 12px; text-align: center;
-        border: 3px double #1d4ed8; border-radius: 6px; color: #1d4ed8; background: rgba(255,255,255,0.55);
-        font: 12px/1.35 Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        align-self: flex-end; margin-top: 4mm; max-width: 100mm; padding: 6px 14px; text-align: center;
+        border: 3px double #1d4ed8; border-radius: 6px; color: #1d4ed8; background: #fff;
+        font: 700 13px/1.4 Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
-      #areaImpressao .carimbo b { display: block; font-size: 14px; letter-spacing: 1px; }
+      #areaImpressao .carimbo b { display: block; font-size: 15px; letter-spacing: 1px; }
+      #areaImpressao .carimbo .obs { font-size: 11.5px; text-align: left; margin-top: 3px; overflow-wrap: anywhere; }
       #areaImpressao .folha + .folha { page-break-before: always; break-before: page; }
     }`;
   document.head.appendChild(estilo);
 
-  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir };
+  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo };
 })();
