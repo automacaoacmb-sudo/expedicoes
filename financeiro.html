@@ -370,7 +370,7 @@
   function carimboDe(it) {
     const a = it.almox || {};
     if (a.situacao !== 'Recebido') return null;
-    return ['RECEBIDO · ' + (it.fazenda || ''), a.dataRecebimento, a.sc ? (a.sc === 'Sem SC' ? 'Sem SC' : 'SC ' + a.sc) : '', a.frota ? 'Frota ' + a.frota : '', a.por ? 'por ' + a.por : ''];
+    return ['RECEBIDO · ' + (it.fazenda || ''), a.dataRecebimento, a.sc ? (a.sc === 'Sem SC' ? 'Sem SC' : 'SC ' + a.sc) : '', a.frota ? 'Frota ' + a.frota : '', a.por ? 'por ' + a.por : '', Comum.obsCarimbo(a.obs)];
   }
 
   async function imprimirProcesso() {
