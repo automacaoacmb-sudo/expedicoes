@@ -146,10 +146,10 @@
   <div class="modal estreita" role="dialog" aria-modal="true" aria-labelledby="anexarTitulo">
     <div class="modal-topo"><h2 id="anexarTitulo">＋ Anexar nota para o conferente</h2><button class="fechar" data-fechar="modalAnexar" aria-label="Fechar">✕</button></div>
     <div class="modal-corpo">
-      <div class="info">Procure antes na lista: se a nota já estiver lá, é só acompanhar a etapa. Se não estiver, anexe aqui: ela vai para o conferente, que confirma com o almoxarifado.</div>
+      <div class="info">Procure antes na lista: se a nota já estiver lá, é só acompanhar a etapa. Se não estiver, anexe aqui: ela vai para o conferente e para o almoxarifado da fazenda escolhida, que confirma o recebimento.</div>
       <div class="campos">
         <div class="campo largo"><label for="anexoArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="anexoArquivos" accept="image/*,application/pdf" multiple></div>
-        <div class="campo"><label for="anexoFazenda">Fazenda</label><select id="anexoFazenda"></select></div>
+        <div class="campo"><label for="anexoFazenda">Fazenda *</label><select id="anexoFazenda"></select></div>
         <div class="campo"><label for="anexoNF">NF/OS</label><input type="text" id="anexoNF" autocomplete="off"></div>
         <div class="campo"><label for="anexoFornecedor">Fornecedor</label><input type="text" id="anexoFornecedor" autocomplete="off"></div>
         <div class="campo"><label for="anexoValor">Valor (R$)</label><input type="text" id="anexoValor" inputmode="decimal" autocomplete="off"></div>
@@ -370,7 +370,7 @@
   function carimboDe(it) {
     const a = it.almox || {};
     if (a.situacao !== 'Recebido') return null;
-    return ['RECEBIDO · ' + (it.fazenda || ''), a.dataRecebimento, a.sc ? 'SC ' + a.sc : '', a.frota ? 'Frota ' + a.frota : '', a.por ? 'por ' + a.por : ''];
+    return ['RECEBIDO · ' + (it.fazenda || ''), a.dataRecebimento, a.sc ? (a.sc === 'Sem SC' ? 'Sem SC' : 'SC ' + a.sc) : '', a.frota ? 'Frota ' + a.frota : '', a.por ? 'por ' + a.por : ''];
   }
 
   async function imprimirProcesso() {
@@ -399,7 +399,7 @@
   function abrirAnexar() {
     const sel = $('anexoFazenda');
     sel.innerHTML = '';
-    [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Não sei'); o.value = f; sel.appendChild(o); });
+    [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Escolha a fazenda...'); o.value = f; sel.appendChild(o); });
     ['anexoArquivos', 'anexoNF', 'anexoFornecedor', 'anexoValor', 'anexoObs'].forEach(id => { $(id).value = ''; });
     $('anexoAviso').textContent = '';
     $('anexoAviso').className = 'aviso-modal';
@@ -411,6 +411,7 @@
     const arquivos = $('anexoArquivos').files;
     const msg = $('anexoAviso');
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
+    if (!$('anexoFazenda').value) { msg.className = 'aviso-modal erro'; msg.textContent = 'Escolha a fazenda.'; $('anexoFazenda').focus(); return; }
     const valor = $('anexoValor').value.trim();
     const botao = $('botaoEnviarAnexo');
     botao.disabled = true;
@@ -423,7 +424,7 @@
         dados: { fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
       }, 180000);
       $('modalAnexar').hidden = true;
-      aviso('Nota enviada ao conferente (#' + r.id + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
+      aviso('Nota enviada ao conferente e ao almoxarifado (#' + r.id + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
       carregar();
     } catch (e) {
       msg.className = 'aviso-modal erro';
