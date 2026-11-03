@@ -262,6 +262,8 @@
   .e-baixada { background: var(--cor-primaria); color: #fff; }
   .e-urgente { background: #c2410c; color: #fff; margin-right: 4px; }
   .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
+  .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
+  .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-transform: none; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -1006,8 +1008,10 @@
     } else if (a.situacao === 'Não recebido') {
       td.appendChild(sub('Não recebido' + (a.por ? ' · ' + a.por : '') + (a.obs ? ' · ' + a.obs : ''), true));
     } else if (a.situacao === 'Outra fazenda') {
-      td.appendChild(sub('↩ ' + (a.por || 'almoxarifado') + ': não é desta fazenda' + (a.obs ? ' (' + a.obs + ')' : '') + '. Troque a fazenda em "Ver".', true));
+      td.appendChild(sub('↩ ' + (a.por || 'almoxarifado') + ': não é desta fazenda' + (a.obs ? ' (' + a.obs + ')' : ''), true));
     }
+    // Fazenda errada ou sem fazenda: troca ali mesmo, sem abrir a nota
+    if (!item.conferido && (a.situacao === 'Outra fazenda' || !item.fazenda)) td.appendChild(criarTrocaFazenda(item, a.situacao === 'Outra fazenda' ? a.obs : ''));
     if (item.scDivergente) td.appendChild(sub('⚠ SC informada ' + a.sc + ' ≠ ' + item.sc, true));
     if (item.origem === 'Contas a Pagar') {
       const obs = item.obsSolicitacao || '';
@@ -1019,6 +1023,48 @@
     }
     if (item.duplicadaDe.length) td.appendChild(sub('⚠ possível duplicada de #' + item.duplicadaDe.join(', #'), true));
     return td;
+  }
+
+  // Lista de fazendas + "Mover" na própria linha. Se a obs. do almoxarifado cita uma fazenda, ela já vem escolhida.
+  function criarTrocaFazenda(item, dica) {
+    const caixa = criar('div', 'troca-fazenda');
+    const sel = document.createElement('select');
+    sel.setAttribute('aria-label', 'Nova fazenda da nota #' + item.id);
+    const textoDica = normalizar(dica);
+    const sugerida = (dados.meta.fazendas || []).filter(function(f) { return f !== item.fazenda && textoDica && textoDica.indexOf(normalizar(f)) !== -1; })[0] || '';
+    [''].concat(dados.meta.fazendas || []).forEach(function(f) {
+      if (f && f === item.fazenda) return;
+      const o = criar('option', '', f || (item.fazenda ? 'Mover para...' : 'Escolher fazenda...'));
+      o.value = f;
+      sel.appendChild(o);
+    });
+    sel.value = sugerida;
+    const botao = criar('button', 'botao-docs', item.fazenda ? 'Mover' : 'Definir');
+    botao.type = 'button';
+    botao.disabled = !sel.value;
+    sel.onchange = function() { botao.disabled = !sel.value; };
+    botao.onclick = function() { moverFazenda(item, sel.value, botao, sel); };
+    caixa.appendChild(sel);
+    caixa.appendChild(botao);
+    return caixa;
+  }
+
+  function moverFazenda(item, fazenda, botao, sel) {
+    if (!fazenda) return;
+    botao.disabled = true;
+    sel.disabled = true;
+    botao.textContent = '...';
+    salvamentosPendentes++;
+    google.script.run
+      .withSuccessHandler(function(r) {
+        salvamentosPendentes--;
+        if (!r.ok) { botao.disabled = false; sel.disabled = false; botao.textContent = 'Mover'; mostrarAviso(r.mensagem, false); return; }
+        substituirItem(r.item);
+        desenhar();
+        mostrarAviso('Nota #' + item.id + ' agora é da fazenda ' + fazenda + ': já aparece no portal dela.', true);
+      })
+      .withFailureHandler(function(erro) { salvamentosPendentes--; botao.disabled = false; sel.disabled = false; botao.textContent = 'Mover'; mostrarAviso('Erro: ' + erro.message, false); })
+      .corrigirLancamento(item.id, item.linha, { fazenda: fazenda });
   }
 
   function criarBotaoImprimir(item) {
