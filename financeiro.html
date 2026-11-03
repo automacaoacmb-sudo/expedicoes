@@ -90,6 +90,8 @@
   .telinha { max-width: 420px; margin: 30px auto; background: var(--cor-cartao); border-radius: 14px; padding: 18px; }
   .telinha input { width: 100%; font-size: 16px; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); margin: 8px 0 12px; }
   @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } }
+  .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 </style>
 </head>
 <body>
@@ -121,8 +123,8 @@
     </div>
     <div class="tabela-wrap">
       <table>
-        <thead><tr><th>Data</th><th>Fazenda</th><th>NF/OS</th><th>Fornecedor</th><th style="text-align:right">Valor</th><th>Etapa</th><th>Processo</th></tr></thead>
-        <tbody id="corpo"><tr><td colspan="7" class="vazio">Carregando...</td></tr></tbody>
+        <thead><tr><th>Data</th><th>Fazenda</th><th>NF</th><th>OS</th><th>Fornecedor</th><th style="text-align:right">Valor</th><th>Etapa</th><th>Processo</th></tr></thead>
+        <tbody id="corpo"><tr><td colspan="8" class="vazio">Carregando...</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -148,7 +150,8 @@
     <div class="modal-corpo">
       <div class="info">Procure antes na lista: se a nota já estiver lá, é só acompanhar a etapa. Se não estiver, anexe aqui: ela vai para o conferente e para o almoxarifado da fazenda escolhida, que confirma o recebimento.</div>
       <div class="campos">
-        <div class="campo largo"><label for="anexoArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="anexoArquivos" accept="image/*,application/pdf" multiple></div>
+        <div class="campo largo"><label for="anexoArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="anexoArquivos" accept="image/*,application/pdf" multiple>
+          <label class="check-lote"><input type="checkbox" id="anexoLote"> Envio em lote: cada arquivo é uma nota diferente (os dados de cada uma vêm da leitura)</label></div>
         <div class="campo"><label for="anexoFazenda">Fazenda *</label><select id="anexoFazenda"></select></div>
         <div class="campo"><label for="anexoNF">NF/OS</label><input type="text" id="anexoNF" autocomplete="off"></div>
         <div class="campo"><label for="anexoFornecedor">Fornecedor</label><input type="text" id="anexoFornecedor" autocomplete="off"></div>
@@ -201,7 +204,7 @@
       $('corpo').innerHTML = '';
       const tr = criar('tr');
       const td = criar('td', 'vazio', e.message);
-      td.colSpan = 7;
+      td.colSpan = 8;
       tr.appendChild(td);
       $('corpo').appendChild(tr);
     }
@@ -226,7 +229,7 @@
     if (!visiveis.length) {
       const tr = criar('tr');
       const td = criar('td', 'vazio', itens.length ? 'Nenhuma nota com esse filtro. Se a nota não existe, use "Anexar nota que não está na lista".' : 'Nenhuma nota ainda.');
-      td.colSpan = 7;
+      td.colSpan = 8;
       tr.appendChild(td);
       corpo.appendChild(tr);
       return;
@@ -235,9 +238,12 @@
       const tr = criar('tr');
       tr.appendChild(criar('td', '', i.data));
       tr.appendChild(criar('td', '', i.fazenda || '—'));
-      const nf = criar('td', '', i.notaFiscal || '—');
+      // "Com NF: Não" = OS; Sim ou em branco = NF
+      const ehOs = i.comNf === 'Não';
+      const nf = criar('td', '', ehOs ? '—' : (i.notaFiscal || '—'));
       if (i.origem !== 'Expedição') nf.appendChild(criar('span', 'sub', i.origem + (i.solicitadoPor ? ' · ' + i.solicitadoPor : '')));
       tr.appendChild(nf);
+      tr.appendChild(criar('td', '', ehOs ? (i.notaFiscal || '—') : '—'));
       tr.appendChild(criar('td', '', i.fornecedor || '—'));
       tr.appendChild(criar('td', 'num', moeda(i.valor)));
       const tdEtapa = criar('td');
@@ -401,10 +407,47 @@
     sel.innerHTML = '';
     [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Escolha a fazenda...'); o.value = f; sel.appendChild(o); });
     ['anexoArquivos', 'anexoNF', 'anexoFornecedor', 'anexoValor', 'anexoObs'].forEach(id => { $(id).value = ''; });
+    $('anexoLote').checked = false;
+    atualizarLote();
     $('anexoAviso').textContent = '';
     $('anexoAviso').className = 'aviso-modal';
     $('botaoEnviarAnexo').disabled = false;
     $('modalAnexar').hidden = false;
+  }
+
+  // Em lote, NF/fornecedor/valor não se aplicam (cada nota tem os seus, lidos da foto).
+  function atualizarLote() {
+    const lote = $('anexoLote').checked;
+    ['anexoNF', 'anexoFornecedor', 'anexoValor'].forEach(id => { $(id).disabled = lote; if (lote) $(id).value = ''; });
+    $('botaoEnviarAnexo').textContent = lote ? 'Enviar uma nota por arquivo' : 'Enviar para o conferente';
+  }
+
+  // Uma nota por arquivo, em sequência, mostrando o andamento. As que falharem são listadas no fim.
+  async function enviarEmLote(arquivos) {
+    const msg = $('anexoAviso');
+    const botao = $('botaoEnviarAnexo');
+    const dados = { fazenda: $('anexoFazenda').value, obs: $('anexoObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
+    const criadas = [], falhas = [], avisos = [];
+    botao.disabled = true;
+    for (let i = 0; i < arquivos.length; i++) {
+      msg.className = 'aviso-modal';
+      msg.textContent = 'Enviando ' + (i + 1) + ' de ' + arquivos.length + '...';
+      try {
+        const lista = await lerArquivos([arquivos[i]]);
+        const r = await api('finEnviarNota', { token: chave, nome: nome(), arquivos: lista, dados: dados }, 180000);
+        criadas.push('#' + r.id);
+        if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso);
+      } catch (e) { falhas.push(arquivos[i].name + ' (' + e.message + ')'); }
+    }
+    botao.disabled = false;
+    if (falhas.length) {
+      msg.className = 'aviso-modal erro';
+      msg.textContent = criadas.length + ' nota(s) enviada(s)' + (criadas.length ? ' (' + criadas.join(', ') + ')' : '') + '. Não foram: ' + falhas.join('; ');
+    } else {
+      $('modalAnexar').hidden = true;
+      aviso(criadas.length + ' notas enviadas ao conferente e ao almoxarifado (' + criadas.join(', ') + ').' + (avisos.length ? ' ' + avisos.join(' ') : ''), !avisos.length);
+    }
+    if (criadas.length) carregar();
   }
 
   async function enviarAnexo() {
@@ -412,6 +455,7 @@
     const msg = $('anexoAviso');
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
     if (!$('anexoFazenda').value) { msg.className = 'aviso-modal erro'; msg.textContent = 'Escolha a fazenda.'; $('anexoFazenda').focus(); return; }
+    if ($('anexoLote').checked) { enviarEmLote(Array.from(arquivos)); return; }
     const valor = $('anexoValor').value.trim();
     const botao = $('botaoEnviarAnexo');
     botao.disabled = true;
@@ -458,6 +502,7 @@
   $('botaoAtualizar').onclick = carregar;
   $('botaoAnexar').onclick = abrirAnexar;
   $('botaoEnviarAnexo').onclick = enviarAnexo;
+  $('anexoLote').onchange = atualizarLote;
   $('botaoImprimir').onclick = imprimirProcesso;
   document.querySelectorAll('[data-fechar]').forEach(b => { b.onclick = () => { $(b.dataset.fechar).hidden = true; limparBlobs(); }; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('modalProcesso').hidden = true; $('modalAnexar').hidden = true; } });
