@@ -50,6 +50,11 @@
   .botao-sec.urgente { border-color: #c2410c; color: #c2410c; }
   .link-sec { background: none; border: none; color: var(--cor-texto-suave); text-decoration: underline; cursor: pointer; font: inherit; font-size: 12.5px; }
   .sub.duplicada { color: #b45309; font-weight: 700; }
+  .abas-fin { display: inline-flex; border: 1.5px solid var(--cor-borda); border-radius: 9px; overflow: hidden; }
+  .abas-fin button { border: none; background: var(--cor-cartao); color: var(--cor-texto-suave); font: inherit; font-size: 13.5px; font-weight: 700; padding: 7px 14px; cursor: pointer; }
+  .abas-fin button.ativa { background: var(--cor-primaria); color: #fff; }
+  .abas-fin button b { font-weight: 700; opacity: 0.85; }
+  td.num-id { color: var(--cor-texto-suave); font-weight: 700; white-space: nowrap; }
   tbody td { padding: 7px 8px; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
   tbody tr:nth-child(even) td { background: var(--cor-zebra); }
   td.num { text-align: right; white-space: nowrap; }
@@ -123,6 +128,10 @@
 
   <section id="telaLista" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
     <div class="barra">
+      <span class="abas-fin">
+        <button id="abaPendentes" class="ativa">Pendentes <b id="contaPendentes"></b></button>
+        <button id="abaBaixadas">Baixadas <b id="contaBaixadas"></b></button>
+      </span>
       <input type="search" id="busca" placeholder="Buscar NF, fornecedor, fazenda, SC...">
       <select id="filtroEtapa"><option value="">Todas as etapas</option></select>
       <label><input type="checkbox" id="soMinhas"> Só as que eu anexei</label>
@@ -140,7 +149,7 @@
     <div class="tabela-wrap">
       <table>
         <thead id="cabecalho"></thead>
-        <tbody id="corpo"><tr><td colspan="9" class="vazio">Carregando...</td></tr></tbody>
+        <tbody id="corpo"><tr><td colspan="10" class="vazio">Carregando...</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -210,17 +219,26 @@
     q.appendChild(b);
   }
 
+  // Última lista recebida, guardada no computador: aparece na hora ao abrir, enquanto a nova chega.
+  let atualizandoLista = false;
+  let jaMostrou = false;
   async function carregar() {
+    const guardada = !jaMostrou ? lsGet('exp_fin_lista') : null;
+    if (guardada && guardada.itens) { itens = guardada.itens; fazendas = guardada.fazendas || []; atualizandoLista = true; desenhar(); }
     try {
       const r = await api('finLista', { token: chave });
+      lsSet('exp_fin_lista', r);
       itens = r.itens;
       fazendas = r.fazendas;
+      jaMostrou = true;
+      atualizandoLista = false;
       desenhar();
     } catch (e) {
+      if (atualizandoLista) { atualizandoLista = false; desenhar(); aviso('Não consegui atualizar a lista (' + e.message + '). Mostrando a última recebida.', false); return; }
       $('corpo').innerHTML = '';
       const tr = criar('tr');
       const td = criar('td', 'vazio', e.message);
-      td.colSpan = 9;
+      td.colSpan = 10;
       tr.appendChild(td);
       $('corpo').appendChild(tr);
     }
@@ -233,7 +251,9 @@
   /* ---------- Colunas com filtro digitado (como na Conferência) ---------- */
   // "Com NF: Não" = OS; Sim ou em branco = NF
   const ehOs = i => i.comNf === 'Não';
+  let abaFin = 'pendentes'; // pendentes (o que importa ao financeiro) ou baixadas (processo encerrado)
   const COLUNAS = [
+    { chave: 'id', titulo: 'Nº', texto: i => String(i.id) },
     { chave: 'data', titulo: 'Data', texto: i => i.data },
     { chave: 'fazenda', titulo: 'Fazenda', texto: i => i.fazenda },
     { chave: 'nf', titulo: 'NF', texto: i => ehOs(i) ? '' : i.notaFiscal + ' ' + (i.origem !== 'Expedição' ? i.origem + ' ' + i.solicitadoPor : '') },
@@ -303,12 +323,17 @@
     const etapa = $('filtroEtapa').value;
     const minhas = $('soMinhas').checked;
     const ativos = COLUNAS.filter(c => c.chave && (filtros[c.chave] || '').trim()).map(c => [c, normalizar(filtros[c.chave].trim())]);
-    visiveis = itens.filter(i =>
+    const daAba = itens.filter(i => (i.etapa === 'Baixada') === (abaFin === 'baixadas'));
+    $('contaPendentes').textContent = '(' + itens.filter(i => i.etapa !== 'Baixada').length + ')';
+    $('contaBaixadas').textContent = '(' + itens.filter(i => i.etapa === 'Baixada').length + ')';
+    $('abaPendentes').className = abaFin === 'pendentes' ? 'ativa' : '';
+    $('abaBaixadas').className = abaFin === 'baixadas' ? 'ativa' : '';
+    visiveis = daAba.filter(i =>
       (!etapa || i.etapa === etapa) &&
       (!minhas || normalizar(i.solicitadoPor) === normalizar(nome())) &&
       (!busca || normalizar(textoItem(i)).indexOf(busca) !== -1) &&
       ativos.every(par => normalizar(par[0].texto(i)).indexOf(par[1]) !== -1));
-    $('info').textContent = visiveis.length + ' de ' + itens.length + ' nota(s)';
+    $('info').textContent = visiveis.length + ' de ' + daAba.length + ' nota(s)' + (atualizandoLista ? ' · ⏳ mostrando a última lista, atualizando...' : '');
 
     const corpo = $('corpo');
     corpo.innerHTML = '';
@@ -316,7 +341,7 @@
     if (!visiveis.length) {
       const tr = criar('tr');
       const td = criar('td', 'vazio', itens.length ? 'Nenhuma nota com esse filtro. Se a nota não existe, use "Anexar nota que não está na lista".' : 'Nenhuma nota ainda.');
-      td.colSpan = 9;
+      td.colSpan = 10;
       tr.appendChild(td);
       corpo.appendChild(tr);
       return;
@@ -333,6 +358,7 @@
         tdSel.appendChild(cx);
       }
       tr.appendChild(tdSel);
+      tr.appendChild(criar('td', 'num-id', String(i.id)));
       tr.appendChild(criar('td', '', i.data));
       tr.appendChild(criar('td', '', i.fazenda || '—'));
       const nf = criar('td', '', ehOs(i) ? '—' : (i.notaFiscal || '—'));
@@ -660,6 +686,8 @@
   $('botaoUrgenciaLote').onclick = () => urgenciaEmLote(false);
   $('botaoTirarUrgenciaLote').onclick = () => urgenciaEmLote(true);
   $('botaoLimparSelecao').onclick = () => { selecionadas.clear(); desenhar(); };
+  $('abaPendentes').onclick = () => { abaFin = 'pendentes'; desenhar(); };
+  $('abaBaixadas').onclick = () => { abaFin = 'baixadas'; selecionadas.clear(); desenhar(); };
   $('botaoImprimir').onclick = imprimirProcesso;
   document.querySelectorAll('[data-fechar]').forEach(b => { b.onclick = () => { $(b.dataset.fechar).hidden = true; limparBlobs(); }; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('modalProcesso').hidden = true; $('modalAnexar').hidden = true; } });
