@@ -2,8 +2,8 @@
  * - Páginas: tenta a internet primeiro (pega atualizações) e cai na cópia salva se estiver sem sinal.
  * - Ícones, manifesto e comum.js: usa a cópia salva.
  * - Servidor (Google Apps Script): sempre pela internet; quem guarda os lançamentos sem sinal é a fila do app. */
-const VERSAO = 'exped-1.0.1';
-const SHELL = ['./', './index.html', './comum.js', './almoxarifado.html', './financeiro.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
+const VERSAO = 'exped-1.1.0';
+const SHELL = ['./', './index.html', './comum.js', './almoxarifado.html', './financeiro.html', './manifest.webmanifest', './manifest-almox.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSAO).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
