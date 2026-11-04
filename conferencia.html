@@ -62,14 +62,17 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232e7d4f'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white'%3E%E2%9C%85%3C/text%3E%3C/svg%3E">
 <style>
   :root {
-    --cor-primaria: #2e7d4f;
-    --cor-primaria-escura: #205c39;
-    --cor-fundo: #f3f6f2;
+    --cor-primaria: #286747;
+    --cor-primaria-escura: #1e5138;
+    --cor-fundo: #f4f6f4;
     --cor-cartao: #ffffff;
-    --cor-texto: #1c2620;
-    --cor-texto-suave: #6b7a70;
-    --cor-borda: #dbe4dc;
-    --cor-zebra: #f6f9f5;
+    --cor-texto: #202b25;
+    --cor-texto-suave: #738078;
+    --cor-borda: #e2e8e3;
+    --cor-zebra: #f8faf8;
+    --cor-cabecalho: #f7f9f7;
+    --cor-realce: #edf5ef;
+    --sombra: 0 8px 28px rgba(23, 37, 27, 0.07);
     --cor-erro: #c0392b;
     --cor-erro-fundo: #fdecea;
     --cor-sucesso-fundo: #e6f4ea;
@@ -92,6 +95,10 @@
       --cor-texto-suave: #9fb0a4;
       --cor-borda: #2c362a;
       --cor-zebra: #1e261c;
+      --cor-cabecalho: #1f271d;
+      --cor-realce: #1d3022;
+      --sombra: 0 8px 28px rgba(0, 0, 0, 0.35);
+      --cor-primaria: #3f9a68;
       --cor-erro-fundo: #3a1f1c;
       --cor-sucesso-fundo: #16281c;
       --cor-aviso: #f3c969;
@@ -114,136 +121,183 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: Inter, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    font-size: 13px;
     background: var(--cor-fundo);
     color: var(--cor-texto);
   }
 
+  /* Topo branco: marca à esquerda, ações à direita (a principal em verde) */
   .topo {
     flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px 16px;
-    padding: 9px 16px;
-    background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura));
-    color: #fff;
+    gap: 8px 20px;
+    min-height: 62px;
+    padding: 10px 22px;
+    background: var(--cor-cartao);
+    border-bottom: 1px solid var(--cor-borda);
   }
-  .topo h1 { margin: 0; font-size: 17px; font-weight: 700; }
-  .topo h1 small { font-size: 12px; font-weight: 400; opacity: 0.85; margin-left: 8px; }
+  .marca { display: flex; align-items: center; gap: 12px; }
+  .marca-icone { width: 36px; height: 36px; border-radius: 10px; background: var(--cor-realce); color: var(--cor-primaria); display: grid; place-items: center; font-size: 18px; font-weight: 800; flex: none; }
+  .topo h1 { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -0.3px; }
+  .topo h1 small { display: block; margin: 2px 0 0; font-size: 11px; font-weight: 400; color: var(--cor-texto-suave); letter-spacing: 0; }
   .topo .acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .botao-topo {
     border-radius: 8px;
-    padding: 7px 13px;
+    padding: 8px 12px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 650;
     cursor: pointer;
-    border: 1.5px solid rgba(255,255,255,0.75);
-    background: transparent;
-    color: #fff;
+    border: 1px solid var(--cor-borda);
+    background: var(--cor-cartao);
+    color: var(--cor-texto);
     white-space: nowrap;
   }
-  .botao-topo:hover { background: rgba(255,255,255,0.15); }
-  .botao-topo.destaque { background: #fff; color: var(--cor-primaria-escura); border-color: #fff; }
-  .botao-topo.destaque:hover { background: #eaf3ec; }
+  .botao-topo:hover { background: var(--cor-zebra); }
+  .botao-topo.destaque { background: var(--cor-primaria); color: #fff; border-color: var(--cor-primaria); }
+  .botao-topo.destaque:hover { background: var(--cor-primaria-escura); }
   .botao-topo:disabled { opacity: 0.6; }
-  .status-leitura-topo { font-size: 12px; opacity: 0.95; max-width: 300px; }
+  .status-leitura-topo { font-size: 11.5px; color: var(--cor-texto-suave); max-width: 300px; }
 
-  main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 12px; }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 22px 18px; max-width: 1900px; width: 100%; margin: 0 auto; }
+
+  /* Cartões de números (clicar filtra a lista) */
+  .cartoes { flex: none; display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .cartao-num {
+    background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 11px; padding: 12px 15px;
+    display: flex; justify-content: space-between; align-items: center; text-align: left; font: inherit; color: inherit; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(23, 37, 27, 0.03);
+  }
+  .cartao-num:hover { border-color: #a7c4b1; }
+  .cartao-num.ativo { border-color: var(--cor-primaria); box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.15); }
+  .cartao-num .rotulo { color: var(--cor-texto-suave); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.3px; }
+  .cartao-num .numero { font-size: 23px; font-weight: 750; letter-spacing: -0.6px; margin-top: 3px; }
+  .cartao-num .dica { font-size: 10.5px; color: var(--cor-texto-suave); margin-top: 1px; }
+  .cartao-num .bolha { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; background: var(--cor-realce); color: var(--cor-primaria); flex: none; }
+  .cartao-num.aviso .bolha { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
+  .cartao-num.perigo .bolha { background: var(--cor-erro-fundo); color: var(--cor-erro); }
+  .cartao-num.azul .bolha { background: var(--cor-azul-fundo); color: var(--cor-azul); }
+
+  /* Painel da lista: abas, busca, atalhos, legenda e tabela num cartão só */
+  .painel { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 12px; box-shadow: var(--sombra); overflow: hidden; }
+  .barra-ferramentas { flex: none; padding: 12px 15px 10px; border-bottom: 1px solid var(--cor-borda); }
+  .barra-ferramentas .linha-cima { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+  .barra-ferramentas .linha-baixo { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-top: 10px; }
+  .atalhos-rotulo { color: var(--cor-texto-suave); font-size: 11px; }
 
   #aviso { flex: none; padding: 9px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 8px; }
   #aviso.ok { background: var(--cor-sucesso-fundo); color: var(--cor-primaria-escura); }
   #aviso.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
 
-  .controles { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
-  .abas { display: flex; gap: 6px; }
+  .abas { display: flex; gap: 4px; }
   .abas button {
-    border: 1.5px solid var(--cor-borda);
-    background: var(--cor-cartao);
+    border: 0;
+    background: transparent;
     color: var(--cor-texto-suave);
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-size: 13.5px;
+    border-radius: 7px;
+    padding: 8px 13px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
   }
-  .abas button.ativa { background: var(--cor-primaria); border-color: var(--cor-primaria); color: #fff; }
+  .abas button.ativa { background: var(--cor-realce); color: var(--cor-primaria); }
   .contagem {
-    display: inline-block; min-width: 22px; margin-left: 6px; padding: 0 7px; border-radius: 999px;
-    background: rgba(128,128,128,0.25); font-size: 12px; text-align: center;
+    display: inline-block; min-width: 20px; margin-left: 5px; padding: 1px 6px; border-radius: 999px;
+    background: rgba(128,128,128,0.16); font-size: 10.5px; text-align: center;
   }
-  .controles input[type=search] {
-    font-size: 13.5px; padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--cor-borda);
-    background: var(--cor-cartao); color: var(--cor-texto); font-family: inherit; min-width: 220px;
+  .barra-ferramentas input[type=search] {
+    width: 320px; max-width: 100%; font-size: 13px; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--cor-borda);
+    background: var(--cor-zebra); color: var(--cor-texto); font-family: inherit; outline: none;
   }
-  #infoLista { font-size: 12.5px; color: var(--cor-texto-suave); }
-  .legenda { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--cor-texto-suave); flex-wrap: wrap; }
-  .legenda .item { display: inline-flex; align-items: center; gap: 5px; }
+  .barra-ferramentas input[type=search]:focus { border-color: #77a58a; box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.12); }
+  #infoLista { font-size: 11.5px; color: var(--cor-texto-suave); }
+  /* Legenda: tempo em aberto, etapas e o que pede ação */
+  .legenda { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 8px 15px; border-bottom: 1px solid var(--cor-borda); background: var(--cor-zebra); font-size: 11px; color: var(--cor-texto-suave); }
+  .legenda .grupo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .legenda .titulo-grupo { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.55px; font-weight: 800; color: var(--cor-texto-suave); }
+  .legenda .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .marca-acao { display: inline-block; font-size: 10px; font-weight: 700; color: #8a5a14; background: #fff5e5; border: 1px solid #f0dfbf; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
   .bolinha { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .bolinha.verde { background: var(--cor-verde-borda); }
   .bolinha.laranja { background: var(--cor-laranja-borda); }
   .bolinha.vermelha { background: var(--cor-vermelha-borda); }
 
-  .chips { flex: none; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .chip-filtro {
-    border: 1.5px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto);
-    border-radius: 999px; padding: 3px 11px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto-suave);
+    border-radius: 999px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer;
   }
-  .chip-filtro.ativo { border-color: var(--cor-primaria); background: var(--cor-sucesso-fundo); color: var(--cor-primaria-escura); }
+  .chip-filtro:hover { border-color: #a7c4b1; }
+  .chip-filtro.ativo { border-color: #a7c4b1; background: var(--cor-realce); color: var(--cor-primaria); font-weight: 700; }
+  .chip-urgentes { border-color: #f0c2a8; color: #c2410c; }
+  .chip-urgentes.ativo { background: #c2410c; border-color: #c2410c; color: #fff; }
 
   .barra-selecao {
     flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
     padding: 8px 12px; border-radius: 10px; background: var(--cor-azul-fundo); color: var(--cor-azul); font-size: 13px; font-weight: 600;
   }
 
-  .tabela-wrap {
-    flex: 1; min-height: 120px; background: var(--cor-cartao); border: 1px solid var(--cor-borda);
-    border-radius: 10px; overflow: auto; scrollbar-width: thin;
-  }
-  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+  .tabela-wrap { flex: 1; min-height: 120px; background: var(--cor-cartao); overflow: auto; scrollbar-width: thin; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; }
   thead th {
-    position: sticky; top: 0; z-index: 2; background: var(--cor-primaria); color: #fff; text-align: left;
-    padding: 7px 8px 8px; white-space: nowrap; font-weight: 700; vertical-align: top; border-right: 1px solid rgba(255,255,255,0.18);
+    position: sticky; top: 0; z-index: 2; background: var(--cor-cabecalho); color: var(--cor-texto-suave); text-align: left;
+    padding: 9px 8px 8px; white-space: nowrap; font-weight: 700; vertical-align: top; border-bottom: 1px solid var(--cor-borda);
   }
-  thead th .titulo { padding-bottom: 5px; }
+  thead th:first-child, tbody td:first-child { padding-left: 15px; }
+  thead th .titulo { padding-bottom: 7px; }
   thead th .titulo.ordenavel { cursor: pointer; user-select: none; }
-  thead th .titulo.ordenavel:hover { text-decoration: underline; }
+  thead th .titulo.ordenavel:hover { color: var(--cor-primaria); }
   thead th input.filtro-col {
-    display: block; width: 100%; min-width: 56px; font: inherit; font-size: 12px; font-weight: 400; padding: 4px 6px;
-    border-radius: 6px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.95); color: #1c2620;
+    display: block; width: 100%; min-width: 56px; font: inherit; font-size: 11px; font-weight: 400; padding: 5px 6px;
+    border-radius: 5px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); outline: none;
   }
-  thead th input.filtro-col:focus { outline: 2px solid #ffd54f; }
-  thead th input.filtro-col.ativo { background: #fff8d6; }
+  thead th input.filtro-col:focus { border-color: #77a58a; box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.12); }
+  thead th input.filtro-col.ativo { background: var(--cor-aviso-fundo); border-color: #e4c98a; }
   th.sel, td.sel { width: 30px; text-align: center; padding-left: 4px; padding-right: 4px; }
   input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--cor-primaria); }
   .botao-limpar {
-    font: inherit; font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.6); background: transparent; color: #fff; cursor: pointer; white-space: nowrap;
+    font: inherit; font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-primaria); cursor: pointer; white-space: nowrap;
   }
-  .botao-limpar:hover { background: rgba(255,255,255,0.15); }
+  .botao-limpar:hover { background: var(--cor-realce); }
 
   tbody td {
-    padding: 6px 8px; border-bottom: 1px solid var(--cor-borda); border-right: 1px solid var(--cor-borda);
+    padding: 9px 8px; border-bottom: 1px solid var(--cor-borda);
     vertical-align: middle; overflow-wrap: anywhere;
   }
-  tbody tr:nth-child(even) td { background: var(--cor-zebra); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { filter: brightness(0.985); }
   tbody tr.selecionada td { background: var(--cor-azul-fundo) !important; }
+  td.id-nota { font-weight: 750; color: var(--cor-texto-suave); }
 
-  /* Semáforo (só Pendências): dias desde a data de envio/registro. */
-  tbody tr.linha-verde td { background: var(--cor-verde-fundo); }
-  tbody tr.linha-laranja td { background: var(--cor-laranja-fundo); }
-  tbody tr.linha-vermelha td { background: var(--cor-vermelha-fundo); }
+  /* Tempo em aberto (só Pendências): fundo sutil + faixa à esquerda; não substitui a cor da etapa. */
+  tbody tr.linha-verde td { background: #f7fbf8; }
+  tbody tr.linha-laranja td { background: #fffaf1; }
+  tbody tr.linha-vermelha td { background: #fff6f5; }
   tbody tr.linha-verde td:first-child { border-left: 4px solid var(--cor-verde-borda); }
   tbody tr.linha-laranja td:first-child { border-left: 4px solid var(--cor-laranja-borda); }
   tbody tr.linha-vermelha td:first-child { border-left: 4px solid var(--cor-vermelha-borda); }
+  @media (prefers-color-scheme: dark) {
+    tbody tr.linha-verde td { background: #18241a; }
+    tbody tr.linha-laranja td { background: #272013; }
+    tbody tr.linha-vermelha td { background: #2a1a18; }
+  }
+  .tempo { display: block; font-size: 10px; font-weight: 700; margin-top: 3px; white-space: nowrap; }
+  .linha-verde .tempo { color: #398447; }
+  .linha-laranja .tempo { color: #a96712; }
+  .linha-vermelha .tempo { color: #bf3933; }
+  td.etapa .marca-acao { margin-top: 4px; }
 
   td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   td.centro { text-align: center; }
   td.nowrap { white-space: nowrap; overflow-wrap: normal; }
   td.obs-conf { min-width: 170px; width: 20%; }
   td.acao { text-align: center; white-space: nowrap; overflow-wrap: normal; }
-  td.docs { min-width: 112px; text-align: center; }
+  td.docs { min-width: 128px; text-align: center; }
+  td.docs .botao-docs { white-space: nowrap; }
   td.etapa { min-width: 150px; }
   .sub { display: block; margin-top: 2px; font-size: 11px; color: var(--cor-texto-suave); overflow-wrap: anywhere; }
   .sub.alerta { color: var(--cor-erro); font-weight: 700; }
@@ -252,14 +306,26 @@
   .marca-atraso { color: var(--cor-texto-suave); white-space: nowrap; }
   .sem-dado { color: var(--cor-texto-suave); }
 
-  .chip-etapa { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
-  .e-aguardando { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
-  .e-faltam { background: var(--cor-erro-fundo); color: var(--cor-erro); }
-  .e-pronta { background: rgba(128,128,128,0.18); color: var(--cor-texto); }
-  .e-enviada { background: var(--cor-azul-fundo); color: var(--cor-azul); }
-  .e-confirmada { background: var(--cor-sucesso-fundo); color: var(--cor-primaria-escura); }
-  .e-divergencia { background: var(--cor-erro); color: #fff; }
-  .e-baixada { background: var(--cor-primaria); color: #fff; }
+  /* Etapa como pílula com bolinha */
+  .chip-etapa { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+  .chip-etapa::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .e-aguardando { background: #eef2f5; color: #5b7185; }
+  .e-faltam { background: #fff0ed; color: #b54c3e; }
+  .e-pronta { background: rgba(128,128,128,0.14); color: var(--cor-texto); }
+  .e-enviada { background: #edf3fb; color: #4b6e9d; }
+  .e-confirmada { background: #eaf4ed; color: #34734b; }
+  .e-divergencia { background: #b83e35; color: #fff; }
+  .e-baixada { background: #edf0ed; color: #68766d; }
+  .e-fazenda { background: #fff2df; color: #a76512; }
+  @media (prefers-color-scheme: dark) {
+    .e-aguardando { background: #24303a; color: #a9bfd2; }
+    .e-faltam { background: #3a1f1c; color: #f1a094; }
+    .e-enviada { background: #1d2a3b; color: #9dbbe6; }
+    .e-confirmada { background: #17301f; color: #8fd0a4; }
+    .e-baixada { background: #262c26; color: #a9b5ac; }
+    .e-fazenda { background: #36280f; color: #f0c27a; }
+    .marca-acao { background: #36280f; color: #f0c27a; border-color: #5a4318; }
+  }
   .e-urgente { background: #c2410c; color: #fff; margin-right: 4px; }
   .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
@@ -305,11 +371,33 @@
   }
   .modal.estreita { width: min(640px, 100%); }
   .modal-topo {
-    flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 16px;
-    background: linear-gradient(135deg, var(--cor-primaria), var(--cor-primaria-escura)); color: #fff;
+    flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px;
+    background: var(--cor-cartao); color: var(--cor-texto); border-bottom: 1px solid var(--cor-borda);
   }
-  .modal-topo h2 { margin: 0; font-size: 15px; font-weight: 700; }
-  .botao-fechar { background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 2px 6px; }
+  .modal-topo h2 { margin: 0; font-size: 15px; font-weight: 750; }
+  .modal-topo .sub-titulo { margin: 2px 0 0; font-size: 11px; color: var(--cor-texto-suave); }
+  .botao-fechar { background: var(--cor-zebra); border: none; border-radius: 7px; width: 30px; height: 30px; color: var(--cor-texto-suave); font-size: 16px; cursor: pointer; flex: none; }
+  .botao-fechar:hover { background: var(--cor-realce); color: var(--cor-primaria); }
+
+  /* Janela da nota = painel lateral: abre da direita, a lista continua visível atrás */
+  #modalNota { justify-content: flex-end; padding: 0; background: rgba(20, 32, 25, 0.40); }
+  #modalNota .modal {
+    width: min(1180px, 92vw); height: 100vh; max-height: none; border-radius: 0; background: var(--cor-fundo);
+    box-shadow: -15px 0 45px rgba(16, 32, 22, 0.19); animation: entrar-painel 0.2s ease;
+  }
+  @keyframes entrar-painel { from { transform: translateX(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+  #modalNota .modal-corpo { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(380px, 0.88fr); gap: 13px; padding: 14px; overflow: hidden; }
+  #modalNota .modal-docs, #modalNota .modal-dados { background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 10px; min-height: 0; padding: 12px 13px; }
+  #modalNota .modal-docs { overflow: hidden; }
+  #modalNota .modal-dados { overflow: auto; }
+  #modalNota .foto-area { border-style: dashed; }
+  #modalNota .foto-area img { max-height: none; }
+  .cabeca-painel { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-bottom: 9px; border-bottom: 1px solid var(--cor-borda); }
+  .cabeca-painel strong { font-size: 12.5px; }
+  .rotulo-secao { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--cor-texto-suave); font-weight: 750; }
+  .rodape-painel { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px; background: var(--cor-cartao); border-top: 1px solid var(--cor-borda); }
+  .rodape-painel .botoes { display: flex; gap: 8px; }
+  @media (max-width: 1000px) { #modalNota .modal { width: 100vw; } #modalNota .modal-corpo { grid-template-columns: 1fr; overflow: auto; } }
   .modal-corpo { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 14px 16px; overflow: auto; }
   .modal-corpo.coluna { flex-direction: column; gap: 10px; }
   .modal-docs { flex: 1.4; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -366,6 +454,7 @@
   .link-gerado { width: 100%; font: inherit; font-size: 12.5px; padding: 7px 9px; border-radius: 8px; border: 1.5px solid var(--cor-primaria); background: var(--cor-fundo); color: var(--cor-texto); }
   .linha-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
   @media (max-width: 860px) { .modal-corpo { flex-direction: column; } .grade-campos { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .cartoes { grid-template-columns: repeat(2, minmax(150px, 1fr)); } main { padding: 12px 14px; } .topo { padding: 10px 14px; } }
 
   /* Impressão da foto: só ela aparece no papel */
   #areaImpressao { display: none; }
@@ -392,60 +481,85 @@
 <body>
 
 <div class="topo">
-  <h1>✅ Conferência<small>Notas e expedições</small></h1>
+  <div class="marca">
+    <div class="marca-icone">✓</div>
+    <h1>Conferência<small>Notas e expedições · recebimento e baixa</small></h1>
+  </div>
   <div class="acoes">
     <span class="status-leitura-topo" id="statusLeitura"></span>
-    <button class="botao-topo destaque" id="botaoLerFotos">📷 Ler fotos</button>
+    <button class="botao-topo" id="botaoLerFotos">📷 Ler fotos</button>
     <button class="botao-topo" id="botaoNovaNota" title="Registrar uma nota que chegou em papel ou PDF (contas a pagar, almoxarifado...) e não foi lançada pelo app">＋ Nova nota</button>
     <button class="botao-topo" id="botaoLinksAlmox" title="Link fixo do portal do almoxarifado de cada fazenda, para mandar pelo WhatsApp">📦 Links do almoxarifado</button>
     <button class="botao-topo" id="botaoConsolidado">📧 Enviar consolidado</button>
-    <button class="botao-topo" id="botaoAtualizar">↻ Atualizar</button>
+    <button class="botao-topo destaque" id="botaoAtualizar">↻ Atualizar</button>
   </div>
 </div>
 
 <main>
   <div id="aviso" hidden></div>
 
-  <div class="controles">
-    <div class="abas">
-      <button id="abaPendentes" class="ativa">Pendências<span class="contagem" id="contagemPendentes">0</span></button>
-      <button id="abaResolvidas">Baixadas<span class="contagem" id="contagemResolvidas">0</span></button>
+  <section class="cartoes" id="cartoes" aria-label="Resumo"></section>
+
+  <section class="painel">
+    <div class="barra-ferramentas">
+      <div class="linha-cima">
+        <div class="abas">
+          <button id="abaPendentes" class="ativa">Pendências<span class="contagem" id="contagemPendentes">0</span></button>
+          <button id="abaResolvidas">Baixadas<span class="contagem" id="contagemResolvidas">0</span></button>
+        </div>
+        <input type="search" id="busca" placeholder="⌕  Buscar em todas as colunas (Nº, NF, fornecedor, SC...)">
+        <span id="infoLista"></span>
+      </div>
+      <div class="linha-baixo">
+        <span class="atalhos-rotulo">Atalhos:</span>
+        <div class="chips" id="chipsEtapa"></div>
+        <div class="chips" id="chipsOrigem"></div>
+      </div>
     </div>
-    <input type="search" id="busca" placeholder="Buscar em todas as colunas...">
-    <span id="infoLista"></span>
-    <span class="legenda" id="legendaPrioridade">
-      <span class="item"><span class="bolinha verde"></span>até 3 dias</span>
-      <span class="item"><span class="bolinha laranja"></span>4 a 6</span>
-      <span class="item"><span class="bolinha vermelha"></span>7 ou mais</span>
-      <span class="item">🤖 = lido da foto pela IA</span>
-    </span>
-  </div>
 
-  <div class="chips" id="chipsEtapa"></div>
-  <div class="chips" id="chipsOrigem"></div>
+    <div class="legenda" id="legendaPrioridade">
+      <div class="grupo"><span class="titulo-grupo">Tempo em aberto</span>
+        <span class="item"><span class="bolinha verde"></span>até 3 dias</span>
+        <span class="item"><span class="bolinha laranja"></span>4 a 6 dias</span>
+        <span class="item"><span class="bolinha vermelha"></span>7 dias ou mais</span>
+      </div>
+      <div class="grupo"><span class="titulo-grupo">Etapa</span>
+        <span class="chip-etapa e-divergencia">Divergência</span>
+        <span class="chip-etapa e-faltam">Nota solicitada / Faltam dados</span>
+        <span class="chip-etapa e-enviada">Aguardando almoxarifado</span>
+        <span class="chip-etapa e-confirmada">Confirmada</span>
+      </div>
+      <div class="grupo"><span class="marca-acao">● Ação conferente</span><span>tem algo para você resolver</span><span class="item">🤖 = lido da foto pela IA</span></div>
+    </div>
 
-
-  <div id="carregando">Carregando...</div>
-  <div class="tabela-wrap" id="tabelaWrap" hidden>
-    <table>
-      <thead id="cabecalhoTabela"></thead>
-      <tbody id="corpoTabela"></tbody>
-    </table>
-  </div>
+    <div id="carregando">Carregando...</div>
+    <div class="tabela-wrap" id="tabelaWrap" hidden>
+      <table>
+        <thead id="cabecalhoTabela"></thead>
+        <tbody id="corpoTabela"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
 
 <!-- Janela da nota: documentos (nota e pedido de compra), dados e resposta do almoxarifado -->
 <div class="modal-fundo" id="modalNota" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notaTitulo">
     <div class="modal-topo">
-      <h2 id="notaTitulo"></h2>
+      <div class="marca">
+        <div class="marca-icone">▣</div>
+        <div><h2 id="notaTitulo"></h2><p class="sub-titulo" id="notaSubtitulo"></p></div>
+      </div>
       <button type="button" class="botao-fechar" data-fechar="modalNota" aria-label="Fechar">✕</button>
     </div>
     <div class="modal-corpo">
       <section class="modal-docs">
-        <div class="abas-docs">
-          <button type="button" id="abaDocNota" class="ativa">Nota / OS</button>
-          <button type="button" id="abaDocPedido">Pedido de compra</button>
+        <div class="cabeca-painel">
+          <strong>Documentos recebidos</strong>
+          <div class="abas-docs">
+            <button type="button" id="abaDocNota" class="ativa">Nota / OS</button>
+            <button type="button" id="abaDocPedido">Pedido de compra</button>
+          </div>
         </div>
         <div class="foto-area" id="fotoArea">Carregando...</div>
         <div class="miniaturas" id="fotoMiniaturas"></div>
@@ -466,17 +580,24 @@
         </div>
       </section>
       <section class="modal-dados">
+        <div class="cabeca-painel">
+          <div><span class="chip-etapa" id="notaEtapa"></span><div style="margin-top:6px"><strong>Dados da conferência</strong></div></div>
+        </div>
         <div class="resumo" id="notaResumo"></div>
         <div class="bloco-info alerta" id="notaJuntar" hidden></div>
+        <div class="rotulo-secao">Dados da nota</div>
         <div class="grade-campos" id="notaCampos"></div>
+        <div class="rotulo-secao">Retorno do almoxarifado e leitura</div>
         <div class="bloco-info" id="notaAlmox" hidden></div>
         <div class="bloco-info" id="notaLeitura" hidden></div>
-        <div class="aviso-modal" id="notaAviso"></div>
-        <div class="modal-botoes">
-          <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
-          <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
-        </div>
       </section>
+    </div>
+    <div class="rodape-painel">
+      <div class="aviso-modal" id="notaAviso"></div>
+      <div class="botoes">
+        <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
+        <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
+      </div>
     </div>
   </div>
 </div>
@@ -549,7 +670,7 @@
 
   const ETAPA_CLASSE = {
     'Nota solicitada': 'e-faltam', 'Aguardando leitura': 'e-aguardando', 'Faltam dados': 'e-faltam', 'Aguardando almoxarifado': 'e-enviada',
-    'Fazenda errada': 'e-aguardando', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada'
+    'Fazenda errada': 'e-fazenda', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada'
   };
   // o que pede ação do conferente vem primeiro
   const ORDEM_ETAPAS = ['Nota solicitada', 'Fazenda errada', 'Divergência', 'Aguardando leitura', 'Faltam dados', 'Confirmada pelo almoxarifado', 'Aguardando almoxarifado'];
@@ -561,6 +682,9 @@
   const filtros = { pendentes: {}, resolvidas: {} };
   let filtroEtapa = '';
   let filtroDuplicadas = false; // botão "⚠ Possíveis duplicadas": mostra só elas, para tratar à parte
+  let filtroUrgentes = false;   // atalho "🔥 Urgentes": só as que o financeiro pediu prioridade
+  // etapas em que o conferente tem algo a fazer (marca "● Ação conferente" na linha)
+  const ETAPAS_ACAO = ['Nota solicitada', 'Fazenda errada', 'Divergência', 'Faltam dados'];
   let atualizando = false;      // mostrando a lista guardada no aparelho enquanto a nova chega
   let filtroOrigem = '';
   const ROTULO_ORIGEM = { 'Contas a Pagar': '💰 Financeiro', 'Almoxarifado': '📦 Almoxarifado', 'Conferente': '✍ Conferente', 'Expedição': '🚚 Expedição' };
@@ -746,6 +870,7 @@
         if (!semFiltroEtapa && filtroEtapa && abaAtual === 'pendentes' && item.etapa !== filtroEtapa) return false;
         if (!semFiltroOrigem && filtroOrigem && (item.origem || 'Expedição') !== filtroOrigem) return false;
         if (!semFiltroDuplicadas && filtroDuplicadas && !(item.duplicadaDe && item.duplicadaDe.length)) return false;
+        if (!semFiltroDuplicadas && filtroUrgentes && !item.urgencia) return false;
         for (let i = 0; i < ativos.length; i++) {
           if (normalizar(textoDaColuna(item, ativos[i][0])).indexOf(ativos[i][1]) === -1) return false;
         }
@@ -777,8 +902,44 @@
     $('abaPendentes').className = abaAtual === 'pendentes' ? 'ativa' : '';
     $('abaResolvidas').className = abaAtual === 'resolvidas' ? 'ativa' : '';
     $('legendaPrioridade').hidden = abaAtual !== 'pendentes';
+    desenharCartoes();
     desenharCabecalho();
     atualizarLista();
+  }
+
+  // Cartões do topo: números do dia; clicar filtra a lista (clicar de novo volta a todas).
+  function desenharCartoes() {
+    const hoje = (function() { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); })();
+    const contar = function(etapa) { return dados.pendentes.filter(function(i) { return i.etapa === etapa; }).length; };
+    const baixadasHoje = dados.resolvidas.filter(function(i) { return String(i.dataConferencia || '').indexOf(hoje) === 0; }).length;
+    const cartoes = [
+      { rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', bolha: '◷', classe: '',
+        ativo: abaAtual === 'pendentes' && !filtroEtapa && !filtroUrgentes && !filtroDuplicadas,
+        acao: function() { abaAtual = 'pendentes'; filtroEtapa = ''; filtroUrgentes = false; filtroDuplicadas = false; } },
+      { rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'Confirmação de recebimento', bolha: '📦', classe: 'aviso',
+        ativo: abaAtual === 'pendentes' && filtroEtapa === 'Aguardando almoxarifado',
+        acao: function() { abaAtual = 'pendentes'; filtroEtapa = filtroEtapa === 'Aguardando almoxarifado' ? '' : 'Aguardando almoxarifado'; } },
+      { rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Precisam de análise', bolha: '!', classe: 'perigo',
+        ativo: abaAtual === 'pendentes' && filtroEtapa === 'Divergência',
+        acao: function() { abaAtual = 'pendentes'; filtroEtapa = filtroEtapa === 'Divergência' ? '' : 'Divergência'; } },
+      { rotulo: 'Baixadas hoje', numero: baixadasHoje, dica: 'Conferências concluídas', bolha: '✓', classe: 'azul',
+        ativo: abaAtual === 'resolvidas',
+        acao: function() { abaAtual = abaAtual === 'resolvidas' ? 'pendentes' : 'resolvidas'; } }
+    ];
+    const area = $('cartoes');
+    area.innerHTML = '';
+    cartoes.forEach(function(c) {
+      const b = criar('button', 'cartao-num ' + c.classe + (c.ativo ? ' ativo' : ''));
+      b.type = 'button';
+      const texto = criar('div');
+      texto.appendChild(criar('div', 'rotulo', c.rotulo));
+      texto.appendChild(criar('div', 'numero', String(c.numero)));
+      texto.appendChild(criar('div', 'dica', c.dica));
+      b.appendChild(texto);
+      b.appendChild(criar('div', 'bolha', c.bolha));
+      b.onclick = function() { c.acao(); desenhar(); };
+      area.appendChild(b);
+    });
   }
 
   function desenharChipsOrigem() {
@@ -809,6 +970,14 @@
     area.hidden = false;
     const contagem = {};
     calcularVisiveis(true).forEach(function(i) { contagem[i.etapa] = (contagem[i.etapa] || 0) + 1; });
+    // urgentes (pedido do financeiro): um clique mostra só elas
+    const nUrg = calcularVisiveis(false, false, true).filter(function(i) { return i.urgencia; }).length;
+    if (nUrg || filtroUrgentes) {
+      const urg = criar('button', 'chip-filtro chip-urgentes' + (filtroUrgentes ? ' ativo' : ''), '🔥 Urgentes (' + nUrg + ')');
+      urg.title = 'Mostrar só as notas em que o financeiro pediu urgência';
+      urg.onclick = function() { filtroUrgentes = !filtroUrgentes; desenhar(); };
+      area.appendChild(urg);
+    }
     // possíveis duplicadas primeiro: um clique mostra só elas
     const nDup = calcularVisiveis(false, false, true).filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length;
     if (nDup || filtroDuplicadas) {
@@ -885,6 +1054,7 @@
     filtroEtapa = '';
     filtroOrigem = '';
     filtroDuplicadas = false;
+    filtroUrgentes = false;
     $('busca').value = '';
     desenhar();
   }
@@ -949,6 +1119,9 @@
           td.appendChild(caixa);
           break;
         }
+        case 'id':
+          td = criar('td', 'nowrap centro id-nota', String(item.id));
+          break;
         case 'dataTs':
           td = criar('td', 'nowrap centro', item.data);
           if (item.atrasoSincronizacao >= 2) {
@@ -1013,6 +1186,12 @@
       tr.appendChild(td);
     });
     if (!item.conferido) permitirSoltarArquivo(tr, item);
+    // clicar em qualquer parte da linha abre a nota (botões, campos e listas da linha continuam funcionando)
+    tr.addEventListener('click', function(e) {
+      if (e.target.closest('button, a, input, textarea, select, label')) return;
+      if (window.getSelection && String(window.getSelection())) return; // quem está selecionando texto para copiar
+      abrirNota(item);
+    });
     return tr;
   }
 
@@ -1126,7 +1305,12 @@
     } else if (item.origem && item.origem !== 'Expedição') {
       td.appendChild(sub('origem: ' + item.origem + (item.solicitadoPor ? ' (' + item.solicitadoPor + ')' : ''), false, item.obsSolicitacao));
     }
-    if (item.duplicadaDe.length) td.appendChild(sub('⚠ possível duplicada de #' + item.duplicadaDe.join(', #'), true));
+    if (item.duplicadaDe.length) td.appendChild(sub('⚠ possível duplicada de Nº ' + item.duplicadaDe.join(', Nº '), true));
+    if (!item.conferido && (ETAPAS_ACAO.indexOf(item.etapa) !== -1 || item.duplicadaDe.length)) td.appendChild(criar('span', 'marca-acao', '● Ação conferente'));
+    if (!item.conferido && abaAtual === 'pendentes') {
+      const dias = diasPendencia(item);
+      td.appendChild(criar('span', 'tempo', '● ' + dias + (dias === 1 ? ' dia' : ' dias') + ' · ' + (dias >= 7 ? 'prioridade alta' : dias >= 4 ? 'atenção' : 'dentro do prazo')));
+    }
     return td;
   }
 
@@ -1554,7 +1738,8 @@
     notaItem = item;
     docsAtuais = { nota: [], pedido: [] };
     abaDoc = item.numFotos || !item.numPedido ? 'nota' : 'pedido';
-    $('notaTitulo').textContent = (item.fazenda || 'Sem fazenda') + ' · ' + item.data + (item.notaFiscal ? ' · NF/OS ' + item.notaFiscal : '') + ' · #' + item.id;
+    $('notaTitulo').textContent = 'Conferência da nota Nº ' + item.id;
+    $('notaSubtitulo').textContent = [item.fazenda || 'Sem fazenda', item.data, item.notaFiscal ? (item.comNf === 'Não' ? 'OS ' : 'NF ') + item.notaFiscal : '', item.fornecedor].filter(Boolean).join(' · ');
     montarDadosNota();
     mostrarAvisoNota('', true);
     $('modalNota').hidden = false;
@@ -1563,6 +1748,8 @@
 
   function montarDadosNota() {
     const item = notaItem;
+    $('notaEtapa').className = 'chip-etapa ' + (ETAPA_CLASSE[item.etapa] || 'e-pronta');
+    $('notaEtapa').textContent = item.etapa;
     const resumo = ['Origem: ' + (item.origem || 'Expedição') + (item.solicitadoPor ? ' (' + item.solicitadoPor + ')' : ''), 'Etapa: ' + item.etapa];
     if (item.obsSolicitacao) resumo.push('Obs.: ' + item.obsSolicitacao);
     if (item.obsEnvio) resumo.push('Obs. de envio: ' + item.obsEnvio);
