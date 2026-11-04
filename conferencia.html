@@ -869,6 +869,11 @@
       })
       .sort(function(a, b) {
         // na ordem padrão das pendências, as urgentes (pedido do financeiro) vêm antes de tudo
+        if (filtroDuplicadas && !semFiltroDuplicadas) {
+          const na = String(a.notaFiscal || '').replace(/\D/g, '').replace(/^0+/, ''), nb = String(b.notaFiscal || '').replace(/\D/g, '').replace(/^0+/, '');
+          if (na !== nb) return na < nb ? -1 : 1;
+          return a.id - b.id;
+        }
         const urg = abaAtual === 'pendentes' && ord.chave === 'dataTs' ? (b.urgencia ? 1 : 0) - (a.urgencia ? 1 : 0) : 0;
         return urg || ord.dir * comparar(a[chaveOrd], b[chaveOrd], colOrd.tipo) || (a.linha - b.linha);
       });
@@ -1898,10 +1903,23 @@
   function montarJuntar(item) {
     const caixa = $('notaJuntar');
     caixa.innerHTML = '';
-    const outras = item.conferido ? [] : item.duplicadaDe.map(function(id) {
-      return dados.pendentes.filter(function(i) { return String(i.id) === String(id); })[0];
-    }).filter(Boolean);
-    caixa.hidden = !outras.length;
+    const achar = function(lista, id) { return lista.filter(function(i) { return String(i.id) === String(id); })[0]; };
+    const outras = item.conferido ? [] : item.duplicadaDe.map(function(id) { return achar(dados.pendentes, id); }).filter(Boolean);
+    // a outra do par já foi baixada: mostra qual é e deixa abrir para comparar (juntar só vale entre pendentes)
+    const baixadas = item.conferido ? [] : item.duplicadaDe.filter(function(id) { return !achar(dados.pendentes, id); });
+    caixa.hidden = !outras.length && !baixadas.length;
+    if (caixa.hidden) return;
+    baixadas.forEach(function(id) {
+      const o = achar(dados.resolvidas, id);
+      caixa.appendChild(criar('div', '', 'Pode ser a mesma nota que a #' + id + (o ? ' · ' + o.data + ' · NF/OS ' + (o.notaFiscal || '—') + ' · ' + (o.fornecedor || '—') + (o.valor !== null ? ' · ' + formatarValor(o.valor) : '') : '') + ', que já foi BAIXADA.' +
+        (item.podeExcluir ? ' Se for a mesma, exclua esta (botão "Excluir lançamento" abaixo).' : ' Se for a mesma, dê baixa nesta com a observação "duplicada da #' + id + '".')));
+      if (o) {
+        const b = criar('button', 'botao-sec', 'Abrir #' + id + ' para comparar');
+        b.type = 'button';
+        b.onclick = function() { fecharNota(true); abaAtual = 'resolvidas'; desenhar(); abrirNota(o); };
+        caixa.appendChild(b);
+      }
+    });
     if (!outras.length) return;
     caixa.appendChild(document.createTextNode('Pode ser a mesma nota que: '));
     outras.forEach(function(o) {
