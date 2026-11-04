@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<title>Conferência de Expedições</title>
 <link rel="manifest" href="manifest-conferencia.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="robots" content="noindex">
@@ -1918,6 +1917,12 @@
         b.type = 'button';
         b.onclick = function() { fecharNota(true); abaAtual = 'resolvidas'; desenhar(); abrirNota(o); };
         caixa.appendChild(b);
+      } else {
+        // baixada antiga (fora das 50 que a tela carrega): abre só os documentos dela numa aba nova
+        const b = criar('button', 'botao-sec', 'Ver documento da #' + id);
+        b.type = 'button';
+        b.onclick = function() { verDocumentosDe(id, b); };
+        caixa.appendChild(b);
       }
     });
     if (!outras.length) return;
@@ -1930,6 +1935,33 @@
       b.onclick = function() { juntar(item, o, b); };
       caixa.appendChild(b);
     });
+  }
+
+  function verDocumentosDe(id, botao) {
+    const janela = window.open('', '_blank'); // abre já no clique (senão o navegador bloqueia)
+    if (!janela) { mostrarAvisoNota('O navegador bloqueou a aba nova. Permita pop-ups desta página.', false); return; }
+    janela.document.write('<title>Nota Nº ' + id + '</title><p style="font:14px Arial">Carregando os documentos da nota Nº ' + id + '...</p>');
+    botao.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(r) {
+        botao.disabled = false;
+        const d = janela.document;
+        d.body.innerHTML = '';
+        d.body.style.cssText = 'margin:0;background:#f6f8f6;font:14px Arial';
+        const titulo = d.createElement('p');
+        titulo.style.cssText = 'margin:10px 14px;font-weight:bold';
+        const docs = r && r.ok ? r.nota.concat(r.pedido) : [];
+        titulo.textContent = 'Nota Nº ' + id + (r && r.ok ? (docs.length ? ' · ' + docs.length + ' documento(s)' : ' · os documentos já foram removidos do Drive') : ' · ' + ((r && r.mensagem) || 'não encontrada'));
+        d.body.appendChild(titulo);
+        docs.forEach(function(src) {
+          const el = d.createElement(ehPdf(src) ? 'iframe' : 'img');
+          el.src = ehPdf(src) ? urlDeDados(src) : src;
+          el.style.cssText = ehPdf(src) ? 'width:100%;height:92vh;border:0;display:block' : 'max-width:100%;display:block;margin:0 auto 10px';
+          d.body.appendChild(el);
+        });
+      })
+      .withFailureHandler(function(erro) { botao.disabled = false; janela.document.body.textContent = 'Erro: ' + erro.message; })
+      .getDocumentosLancamento(id, 0);
   }
 
   function juntar(manter, remover, botao) {
