@@ -902,22 +902,22 @@
     const cartoes = [
       { rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', bolha: '◷', classe: '',
         ativo: abaAtual === 'pendentes' && !filtroEtapa && !filtroUrgentes && !filtroDuplicadas,
-        acao: function() { abaAtual = 'pendentes'; filtroEtapa = ''; filtroUrgentes = false; filtroDuplicadas = false; } },
+        liga: function() {} },
       { rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'Confirmação de recebimento', bolha: '📦', classe: 'aviso',
         ativo: abaAtual === 'pendentes' && filtroEtapa === 'Aguardando almoxarifado',
-        acao: function() { abaAtual = 'pendentes'; filtroEtapa = filtroEtapa === 'Aguardando almoxarifado' ? '' : 'Aguardando almoxarifado'; } },
+        liga: function() { filtroEtapa = 'Aguardando almoxarifado'; } },
       { rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Precisam de análise', bolha: '!', classe: 'perigo',
         ativo: abaAtual === 'pendentes' && filtroEtapa === 'Divergência',
-        acao: function() { abaAtual = 'pendentes'; filtroEtapa = filtroEtapa === 'Divergência' ? '' : 'Divergência'; } },
+        liga: function() { filtroEtapa = 'Divergência'; } },
       { rotulo: 'Baixadas hoje', numero: baixadasHoje, dica: 'Conferências concluídas', bolha: '✓', classe: 'azul',
         ativo: abaAtual === 'resolvidas',
-        acao: function() { abaAtual = abaAtual === 'resolvidas' ? 'pendentes' : 'resolvidas'; } },
+        liga: function() { abaAtual = 'resolvidas'; } },
       { rotulo: '⚑ Urgentes', numero: dados.pendentes.filter(function(i) { return i.urgencia; }).length, dica: 'O financeiro pediu prioridade', classe: 'urgente',
         ativo: abaAtual === 'pendentes' && filtroUrgentes,
-        acao: function() { abaAtual = 'pendentes'; filtroUrgentes = !filtroUrgentes; } },
+        liga: function() { filtroUrgentes = true; } },
       { rotulo: '⚠ Possíveis duplicadas', numero: dados.pendentes.filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length, dica: 'Mesmo número e mesmo fornecedor ou valor: abra a nota e use "Juntar"', classe: 'duplicada',
         ativo: abaAtual === 'pendentes' && filtroDuplicadas,
-        acao: function() { abaAtual = 'pendentes'; filtroDuplicadas = !filtroDuplicadas; } }
+        liga: function() { filtroDuplicadas = true; } }
     ];
     const area = $('cartoes');
     area.innerHTML = '';
@@ -928,7 +928,12 @@
       if (c.classe !== 'urgente' && c.classe !== 'duplicada') b.appendChild(criar('span', 'bolha'));
       b.appendChild(criar('span', 'rotulo', c.rotulo));
       b.appendChild(criar('span', 'numero', String(c.numero)));
-      b.onclick = function() { c.acao(); desenhar(); };
+      b.onclick = function() {
+        const jaAtivo = c.ativo;
+        abaAtual = 'pendentes'; filtroEtapa = ''; filtroUrgentes = false; filtroDuplicadas = false;
+        if (!jaAtivo) c.liga();
+        desenhar();
+      };
       area.appendChild(b);
     });
   }
