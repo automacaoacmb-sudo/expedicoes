@@ -62,9 +62,10 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232e7d4f'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white'%3E%E2%9C%85%3C/text%3E%3C/svg%3E">
 <style>
   :root {
-    --cor-primaria: #286747;
-    --cor-primaria-escura: #1e5138;
-    --cor-fundo: #f4f6f4;
+    color-scheme: light;
+    --cor-primaria: #2f7d55;
+    --cor-primaria-escura: #266846;
+    --cor-fundo: #f6f8f6;
     --cor-cartao: #ffffff;
     --cor-texto: #202b25;
     --cor-texto-suave: #738078;
@@ -87,29 +88,7 @@
     --cor-vermelha-borda: #e53935;
     --cor-vermelha-fundo: #fdeceb;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --cor-fundo: #10140f;
-      --cor-cartao: #1a2118;
-      --cor-texto: #eef2ec;
-      --cor-texto-suave: #9fb0a4;
-      --cor-borda: #2c362a;
-      --cor-zebra: #1e261c;
-      --cor-cabecalho: #1f271d;
-      --cor-realce: #1d3022;
-      --sombra: 0 8px 28px rgba(0, 0, 0, 0.35);
-      --cor-primaria: #3f9a68;
-      --cor-erro-fundo: #3a1f1c;
-      --cor-sucesso-fundo: #16281c;
-      --cor-aviso: #f3c969;
-      --cor-aviso-fundo: #3a2f12;
-      --cor-azul: #8fb9ef;
-      --cor-azul-fundo: #182638;
-      --cor-verde-fundo: #17281b;
-      --cor-laranja-fundo: #362510;
-      --cor-vermelha-fundo: #3a1f1c;
-    }
-  }
+  
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
 
@@ -164,28 +143,27 @@
 
   main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 22px 18px; max-width: 1900px; width: 100%; margin: 0 auto; }
 
-  /* Cartões de números (clicar filtra a lista) */
-  .cartoes { flex: none; display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  /* Números do resumo: uma linha discreta (até 30px); clicar filtra a lista */
+  .cartoes { flex: none; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
   .cartao-num {
-    background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 11px; padding: 12px 15px;
-    display: flex; justify-content: space-between; align-items: center; text-align: left; font: inherit; color: inherit; cursor: pointer;
-    box-shadow: 0 1px 2px rgba(23, 37, 27, 0.03);
+    height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px 0 9px;
+    background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 8px;
+    font: inherit; font-size: 12px; color: var(--cor-texto-suave); cursor: pointer; white-space: nowrap;
   }
-  .cartao-num:hover { border-color: #a7c4b1; }
-  .cartao-num.ativo { border-color: var(--cor-primaria); box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.15); }
-  .cartao-num .rotulo { color: var(--cor-texto-suave); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.3px; }
-  .cartao-num .numero { font-size: 23px; font-weight: 750; letter-spacing: -0.6px; margin-top: 3px; }
-  .cartao-num .dica { font-size: 10.5px; color: var(--cor-texto-suave); margin-top: 1px; }
-  .cartao-num .bolha { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 16px; background: var(--cor-realce); color: var(--cor-primaria); flex: none; }
-  .cartao-num.aviso .bolha { background: var(--cor-aviso-fundo); color: var(--cor-aviso); }
-  .cartao-num.perigo .bolha { background: var(--cor-erro-fundo); color: var(--cor-erro); }
-  .cartao-num.azul .bolha { background: var(--cor-azul-fundo); color: var(--cor-azul); }
+  .cartao-num:hover { border-color: #b8cfc0; color: var(--cor-texto); }
+  .cartao-num.ativo { border-color: var(--cor-primaria); color: var(--cor-texto); background: var(--cor-realce); }
+  .cartao-num .bolha { width: 8px; height: 8px; border-radius: 50%; background: #8fb59c; flex: none; }
+  .cartao-num.aviso .bolha { background: #7fa3c9; }
+  .cartao-num.perigo .bolha { background: #d98b82; }
+  .cartao-num.azul .bolha { background: #b5bfb8; }
+  .cartao-num .numero { font-size: 13px; font-weight: 750; color: var(--cor-texto); }
+  .cartao-num .rotulo { font-weight: 600; }
 
   /* Painel da lista: abas, busca, atalhos, legenda e tabela num cartão só */
   .painel { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 12px; box-shadow: var(--sombra); overflow: hidden; }
-  .barra-ferramentas { flex: none; padding: 12px 15px 10px; border-bottom: 1px solid var(--cor-borda); }
-  .barra-ferramentas .linha-cima { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
-  .barra-ferramentas .linha-baixo { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-top: 10px; }
+  .barra-ferramentas { flex: none; padding: 9px 15px 9px; border-bottom: 1px solid var(--cor-borda); }
+  .barra-ferramentas .linha-cima { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px dashed var(--cor-borda); }
+  .barra-ferramentas .linha-baixo { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; margin-top: 8px; }
   .atalhos-rotulo { color: var(--cor-texto-suave); font-size: 11px; }
 
   #aviso { flex: none; padding: 9px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 8px; }
@@ -209,31 +187,34 @@
     background: rgba(128,128,128,0.16); font-size: 10.5px; text-align: center;
   }
   .barra-ferramentas input[type=search] {
-    width: 320px; max-width: 100%; font-size: 13px; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--cor-borda);
-    background: var(--cor-zebra); color: var(--cor-texto); font-family: inherit; outline: none;
+    width: 190px; height: 28px; font-size: 12px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--cor-borda);
+    background: var(--cor-zebra); color: var(--cor-texto); font-family: inherit; outline: none; flex: none;
   }
-  .barra-ferramentas input[type=search]:focus { border-color: #77a58a; box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.12); }
-  #infoLista { font-size: 11.5px; color: var(--cor-texto-suave); }
-  /* Legenda: tempo em aberto, etapas e o que pede ação */
-  .legenda { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 8px 15px; border-bottom: 1px solid var(--cor-borda); background: var(--cor-zebra); font-size: 11px; color: var(--cor-texto-suave); }
-  .legenda .grupo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .legenda .titulo-grupo { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.55px; font-weight: 800; color: var(--cor-texto-suave); }
-  .legenda .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .barra-ferramentas input[type=search]:focus { width: 260px; border-color: #9fbfab; background: var(--cor-cartao); }
+  #infoLista { margin-left: auto; font-size: 11px; color: var(--cor-texto-suave); white-space: nowrap; }
+  /* Legenda compacta, no alto à direita */
+  .legenda { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; font-size: 10.5px; color: var(--cor-texto-suave); }
+  .legenda .titulo-grupo { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; color: #9aa59e; }
+  .legenda .item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .legenda .separador { width: 1px; height: 12px; background: var(--cor-borda); }
+  .legenda .bolinha { width: 7px; height: 7px; }
   .marca-acao { display: inline-block; font-size: 10px; font-weight: 700; color: #8a5a14; background: #fff5e5; border: 1px solid #f0dfbf; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
   .bolinha { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-  .bolinha.verde { background: var(--cor-verde-borda); }
-  .bolinha.laranja { background: var(--cor-laranja-borda); }
-  .bolinha.vermelha { background: var(--cor-vermelha-borda); }
+  .bolinha.verde { background: #8fc79c; }
+  .bolinha.laranja { background: #f2bd6e; }
+  .bolinha.vermelha { background: #eb998f; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  /* os atalhos correm na mesma linha da busca (sem caixas em volta) */
+  .barra-ferramentas .linha-baixo .chips { display: contents; }
   .chip-filtro {
-    border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto-suave);
-    border-radius: 999px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    height: 26px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto-suave);
+    border-radius: 999px; padding: 0 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
   }
   .chip-filtro:hover { border-color: #a7c4b1; }
   .chip-filtro.ativo { border-color: #a7c4b1; background: var(--cor-realce); color: var(--cor-primaria); font-weight: 700; }
-  .chip-urgentes { border-color: #f0c2a8; color: #c2410c; }
-  .chip-urgentes.ativo { background: #c2410c; border-color: #c2410c; color: #fff; }
+  .chip-urgentes { border-color: #f4cdb3; color: #b8501c; }
+  .chip-urgentes.ativo { background: #fdeee4; border-color: #e8a57d; color: #a3440f; }
 
   .barra-selecao {
     flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
@@ -269,26 +250,18 @@
     vertical-align: middle; overflow-wrap: anywhere;
   }
   tbody tr { cursor: pointer; }
-  tbody tr:hover td { filter: brightness(0.985); }
+  tbody tr:hover td { background: #f8fbf9; }
   tbody tr.selecionada td { background: var(--cor-azul-fundo) !important; }
   td.id-nota { font-weight: 750; color: var(--cor-texto-suave); }
 
-  /* Tempo em aberto (só Pendências): fundo sutil + faixa à esquerda; não substitui a cor da etapa. */
-  tbody tr.linha-verde td { background: #f7fbf8; }
-  tbody tr.linha-laranja td { background: #fffaf1; }
-  tbody tr.linha-vermelha td { background: #fff6f5; }
-  tbody tr.linha-verde td:first-child { border-left: 4px solid var(--cor-verde-borda); }
-  tbody tr.linha-laranja td:first-child { border-left: 4px solid var(--cor-laranja-borda); }
-  tbody tr.linha-vermelha td:first-child { border-left: 4px solid var(--cor-vermelha-borda); }
-  @media (prefers-color-scheme: dark) {
-    tbody tr.linha-verde td { background: #18241a; }
-    tbody tr.linha-laranja td { background: #272013; }
-    tbody tr.linha-vermelha td { background: #2a1a18; }
-  }
-  .tempo { display: block; font-size: 10px; font-weight: 700; margin-top: 3px; white-space: nowrap; }
-  .linha-verde .tempo { color: #398447; }
-  .linha-laranja .tempo { color: #a96712; }
-  .linha-vermelha .tempo { color: #bf3933; }
+  /* Tempo em aberto (só Pendências): linha limpa, só uma faixa fina à esquerda e o texto do tempo na cor */
+  tbody tr.linha-verde td:first-child { border-left: 3px solid #8fc79c; }
+  tbody tr.linha-laranja td:first-child { border-left: 3px solid #f2bd6e; }
+  tbody tr.linha-vermelha td:first-child { border-left: 3px solid #eb998f; }
+  .tempo { display: block; font-size: 10px; font-weight: 600; margin-top: 3px; white-space: nowrap; }
+  .linha-verde .tempo { color: #5b9a69; }
+  .linha-laranja .tempo { color: #b98232; }
+  .linha-vermelha .tempo { color: #c9655a; }
   td.etapa .marca-acao { margin-top: 4px; }
 
   td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -314,20 +287,13 @@
   .e-pronta { background: rgba(128,128,128,0.14); color: var(--cor-texto); }
   .e-enviada { background: #edf3fb; color: #4b6e9d; }
   .e-confirmada { background: #eaf4ed; color: #34734b; }
-  .e-divergencia { background: #b83e35; color: #fff; }
+  .e-divergencia { background: #fde8e5; color: #b4453a; box-shadow: inset 0 0 0 1px #f3c4bd; }
   .e-baixada { background: #edf0ed; color: #68766d; }
   .e-fazenda { background: #fff2df; color: #a76512; }
-  @media (prefers-color-scheme: dark) {
-    .e-aguardando { background: #24303a; color: #a9bfd2; }
-    .e-faltam { background: #3a1f1c; color: #f1a094; }
-    .e-enviada { background: #1d2a3b; color: #9dbbe6; }
-    .e-confirmada { background: #17301f; color: #8fd0a4; }
-    .e-baixada { background: #262c26; color: #a9b5ac; }
-    .e-fazenda { background: #36280f; color: #f0c27a; }
-    .marca-acao { background: #36280f; color: #f0c27a; border-color: #5a4318; }
-  }
-  .e-urgente { background: #c2410c; color: #fff; margin-right: 4px; }
-  .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
+  
+  .e-urgente { background: #fdeee4; color: #b8501c; box-shadow: inset 0 0 0 1px #f4cdb3; margin-right: 4px; }
+  .e-urgente::before, .e-contas::before { display: none; }
+  .e-contas { background: #f1ecfb; color: #6b46b8; box-shadow: inset 0 0 0 1px #dcd0f3; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
   .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
   .botao-clipe { margin-left: 4px; padding: 4px 7px; }
@@ -337,8 +303,8 @@
   .aviso-repetida .opcao { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; border-top: 1px solid rgba(180,83,9,0.2); }
   .aviso-repetida .opcao:first-of-type { border-top: none; }
   tbody tr.soltar-aqui td { background: var(--cor-sucesso-fundo) !important; box-shadow: inset 0 2px 0 var(--cor-primaria), inset 0 -2px 0 var(--cor-primaria); }
-  .chip-duplicadas { border-color: #b45309; color: #b45309; }
-  .chip-duplicadas.ativo { background: #b45309; border-color: #b45309; color: #fff; }
+  .chip-duplicadas { border-color: #ecd3a6; color: #a2620f; }
+  .chip-duplicadas.ativo { background: #fff4e0; border-color: #ddb26a; color: #8a520b; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-transform: none; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -502,34 +468,30 @@
 
   <section class="painel">
     <div class="barra-ferramentas">
+      <!-- no alto: abas à esquerda e a legenda, compacta, à direita -->
       <div class="linha-cima">
         <div class="abas">
           <button id="abaPendentes" class="ativa">Pendências<span class="contagem" id="contagemPendentes">0</span></button>
           <button id="abaResolvidas">Baixadas<span class="contagem" id="contagemResolvidas">0</span></button>
         </div>
-        <input type="search" id="busca" placeholder="⌕  Buscar em todas as colunas (Nº, NF, fornecedor, SC...)">
-        <span id="infoLista"></span>
+        <div class="legenda" id="legendaPrioridade">
+          <span class="titulo-grupo">Tempo em aberto</span>
+          <span class="item"><span class="bolinha verde"></span>até 3 dias</span>
+          <span class="item"><span class="bolinha laranja"></span>4 a 6</span>
+          <span class="item"><span class="bolinha vermelha"></span>7 ou mais</span>
+          <span class="separador"></span>
+          <span class="item"><span class="marca-acao">● Ação conferente</span> algo para você resolver</span>
+          <span class="separador"></span>
+          <span class="item">🤖 lido da foto</span>
+        </div>
       </div>
+      <!-- junto da tabela: busca discreta à esquerda e os atalhos logo depois -->
       <div class="linha-baixo">
-        <span class="atalhos-rotulo">Atalhos:</span>
+        <input type="search" id="busca" placeholder="⌕ Buscar em tudo...">
         <div class="chips" id="chipsEtapa"></div>
         <div class="chips" id="chipsOrigem"></div>
+        <span id="infoLista"></span>
       </div>
-    </div>
-
-    <div class="legenda" id="legendaPrioridade">
-      <div class="grupo"><span class="titulo-grupo">Tempo em aberto</span>
-        <span class="item"><span class="bolinha verde"></span>até 3 dias</span>
-        <span class="item"><span class="bolinha laranja"></span>4 a 6 dias</span>
-        <span class="item"><span class="bolinha vermelha"></span>7 dias ou mais</span>
-      </div>
-      <div class="grupo"><span class="titulo-grupo">Etapa</span>
-        <span class="chip-etapa e-divergencia">Divergência</span>
-        <span class="chip-etapa e-faltam">Nota solicitada / Faltam dados</span>
-        <span class="chip-etapa e-enviada">Aguardando almoxarifado</span>
-        <span class="chip-etapa e-confirmada">Confirmada</span>
-      </div>
-      <div class="grupo"><span class="marca-acao">● Ação conferente</span><span>tem algo para você resolver</span><span class="item">🤖 = lido da foto pela IA</span></div>
     </div>
 
     <div id="carregando">Carregando...</div>
@@ -682,7 +644,7 @@
   const filtros = { pendentes: {}, resolvidas: {} };
   let filtroEtapa = '';
   let filtroDuplicadas = false; // botão "⚠ Possíveis duplicadas": mostra só elas, para tratar à parte
-  let filtroUrgentes = false;   // atalho "🔥 Urgentes": só as que o financeiro pediu prioridade
+  let filtroUrgentes = false;   // atalho "⚑ Urgentes": só as que o financeiro pediu prioridade
   // etapas em que o conferente tem algo a fazer (marca "● Ação conferente" na linha)
   const ETAPAS_ACAO = ['Nota solicitada', 'Fazenda errada', 'Divergência', 'Faltam dados'];
   let atualizando = false;      // mostrando a lista guardada no aparelho enquanto a nova chega
@@ -931,12 +893,10 @@
     cartoes.forEach(function(c) {
       const b = criar('button', 'cartao-num ' + c.classe + (c.ativo ? ' ativo' : ''));
       b.type = 'button';
-      const texto = criar('div');
-      texto.appendChild(criar('div', 'rotulo', c.rotulo));
-      texto.appendChild(criar('div', 'numero', String(c.numero)));
-      texto.appendChild(criar('div', 'dica', c.dica));
-      b.appendChild(texto);
-      b.appendChild(criar('div', 'bolha', c.bolha));
+      b.title = c.dica + ' (clique para filtrar)';
+      b.appendChild(criar('span', 'bolha'));
+      b.appendChild(criar('span', 'rotulo', c.rotulo));
+      b.appendChild(criar('span', 'numero', String(c.numero)));
       b.onclick = function() { c.acao(); desenhar(); };
       area.appendChild(b);
     });
@@ -973,7 +933,7 @@
     // urgentes (pedido do financeiro): um clique mostra só elas
     const nUrg = calcularVisiveis(false, false, true).filter(function(i) { return i.urgencia; }).length;
     if (nUrg || filtroUrgentes) {
-      const urg = criar('button', 'chip-filtro chip-urgentes' + (filtroUrgentes ? ' ativo' : ''), '🔥 Urgentes (' + nUrg + ')');
+      const urg = criar('button', 'chip-filtro chip-urgentes' + (filtroUrgentes ? ' ativo' : ''), '⚑ Urgentes (' + nUrg + ')');
       urg.title = 'Mostrar só as notas em que o financeiro pediu urgência';
       urg.onclick = function() { filtroUrgentes = !filtroUrgentes; desenhar(); };
       area.appendChild(urg);
@@ -1279,10 +1239,10 @@
 
   function criarCelulaEtapa(item) {
     const td = criar('td', 'etapa');
-    if (item.urgencia) td.appendChild(criar('span', 'chip-etapa e-urgente', '🔥 Urgente'));
+    if (item.urgencia) td.appendChild(criar('span', 'chip-etapa e-urgente', '⚑ Urgente'));
     if (item.origem === 'Contas a Pagar') td.appendChild(criar('span', 'chip-etapa e-contas', '💰 Contas a Pagar'));
     td.appendChild(criar('span', 'chip-etapa ' + (ETAPA_CLASSE[item.etapa] || 'e-pronta'), item.etapa));
-    if (item.urgencia) td.appendChild(sub('🔥 ' + item.urgencia, true));
+    if (item.urgencia) td.appendChild(sub('⚑ ' + item.urgencia, true));
     const a = item.almox || {};
     if (item.etapa === 'Nota solicitada') {
       td.appendChild(sub('📎 o almoxarifado está sem a nota: anexe' + (item.obsSolicitacao ? ' (' + item.obsSolicitacao + ')' : ''), true, item.notaSolicitada));
