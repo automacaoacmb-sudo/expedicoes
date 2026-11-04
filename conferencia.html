@@ -303,7 +303,17 @@
   .e-contas { background: #f1ecfb; color: #6b46b8; box-shadow: inset 0 0 0 1px #dcd0f3; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
   .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
-  .botao-clipe { margin-left: 4px; padding: 4px 7px; }
+  .anexos { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .anexo-ind { height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid #cfe1d5; background: #eef6f0; color: #2f7d55; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .anexo-ind:hover { background: #e1f0e6; border-color: #9fc7ad; }
+  .anexo-vazio { font-size: 11px; color: var(--cor-texto-suave); font-style: italic; }
+  .anexo-mais { height: 26px; min-width: 26px; padding: 0 7px; border-radius: 999px; border: 1px dashed #b9cbbf; background: transparent; color: var(--cor-texto-suave); font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .anexo-mais:hover { border-color: var(--cor-primaria); color: var(--cor-primaria); background: #f3f9f5; }
+  td.acao { min-width: 128px; }
+  td.acao .botao-ver, td.acao .botao-ok, td.acao .botao-desfazer { display: block; width: 118px; margin: 0 auto 5px; height: 28px; padding: 0 8px; }
+  .botao-imprimir { border: none; border-radius: 8px; background: var(--cor-primaria); color: #fff; font: inherit; font-size: 13px; font-weight: 700; padding: 7px 14px; cursor: pointer; }
+  .botao-imprimir:hover { filter: brightness(1.08); }
+  .botao-imprimir:disabled { opacity: 0.6; }
   .foto-area.soltar-aqui { outline: 3px dashed var(--cor-primaria); outline-offset: -6px; }
   .aviso-repetida { margin-top: 8px; padding: 9px 11px; border-radius: 8px; background: rgba(180,83,9,0.10); color: #92400e; font-size: 13px; }
   .aviso-repetida b { display: block; margin-bottom: 4px; }
@@ -541,7 +551,8 @@
           <button type="button" class="botao-sec" id="vistaGirarDir" title="Girar para a direita">Girar ⟳</button>
         </div>
         <div class="acoes-docs">
-          <button type="button" class="botao-sec" id="botaoImprimirDoc">🖨 Imprimir</button>
+          <button type="button" class="botao-imprimir" id="botaoImprimirNota">🖨 Imprimir nota</button>
+          <button type="button" class="botao-sec" id="botaoImprimirDoc" title="Imprime só o documento que está na tela (com o giro aplicado)">🖨 Só este documento</button>
           <a class="botao-sec" id="linkBaixarDoc" aria-disabled="true">⬇ Baixar</a>
           <button type="button" class="botao-sec" id="botaoAnexarNota">📎 Anexar à nota</button>
           <button type="button" class="botao-sec" id="botaoAnexarPedido">📎 Anexar pedido de compra</button>
@@ -1149,7 +1160,7 @@
         }
         case null:
           td = criar('td', 'acao');
-          if (!item.conferido) td.appendChild(criarBotaoImprimir(item));
+          td.appendChild(criarBotaoVer(item));
           td.appendChild(criarBotaoAcao(item, function() { return area; }));
           if (item.impressoConf) td.appendChild(sub('🖨 impresso ' + item.impressoConf));
           break;
@@ -1227,19 +1238,26 @@
   function criarCelulaDocumentos(item) {
     const td = criar('td', 'docs');
     const total = item.numFotos + item.numPedido;
-    const botao = criar('button', 'botao-docs', total ? '📷 Ver (' + total + ')' : '📎 Abrir');
-    botao.type = 'button';
-    botao.title = 'Ver documentos, corrigir dados e anexar nota ou pedido de compra';
-    botao.onclick = function() { abrirNota(item); };
-    td.appendChild(botao);
-    if (!item.conferido) {
-      const clipe = criar('button', 'botao-docs botao-clipe', '📎');
-      clipe.type = 'button';
-      clipe.title = 'Anexar a nota fiscal a este lançamento (ou arraste o arquivo para cima da linha)';
-      clipe.setAttribute('aria-label', 'Anexar nota fiscal à nota Nº ' + item.id);
-      clipe.onclick = function() { escolherAnexoLinha(item); };
-      td.appendChild(clipe);
+    const linha = criar('div', 'anexos');
+    // o clipe mostra que existe anexo (e quantos); clicar abre os documentos
+    if (total) {
+      const ind = criar('button', 'anexo-ind', '📎 ' + total);
+      ind.type = 'button';
+      ind.title = total + ' documento(s) anexado(s): clique para ver';
+      ind.onclick = function() { abrirNota(item); };
+      linha.appendChild(ind);
+    } else {
+      linha.appendChild(criar('span', 'anexo-vazio', 'sem anexo'));
     }
+    if (!item.conferido) {
+      const mais = criar('button', 'anexo-mais', total ? '＋' : '＋ Anexar');
+      mais.type = 'button';
+      mais.title = 'Anexar a nota fiscal a este lançamento (ou arraste o arquivo para cima da linha)';
+      mais.setAttribute('aria-label', 'Anexar nota fiscal à nota Nº ' + item.id);
+      mais.onclick = function() { escolherAnexoLinha(item); };
+      linha.appendChild(mais);
+    }
+    td.appendChild(linha);
 
     if (item.statusLeitura === 'Aguardando') td.appendChild(sub('⏳ aguardando leitura'));
     else if (item.statusLeitura === 'Não lida') td.appendChild(sub('⚠ não lida', true));
@@ -1329,12 +1347,19 @@
       .corrigirLancamento(item.id, item.linha, { fazenda: fazenda });
   }
 
-  function criarBotaoImprimir(item) {
-    const botao = criar('button', 'botao-docs', item.impressoConf ? '🖨 Reimprimir' : '🖨 Imprimir');
+  function criarBotaoVer(item) {
+    const botao = criar('button', 'botao-docs botao-ver', '📄 Ver documento');
     botao.type = 'button';
-    botao.title = 'Imprimir a nota com o carimbo do recebimento (e o pedido de compra, se anexado)';
-    botao.onclick = function() { imprimirNotaCompleta(item, botao); };
+    botao.title = 'Abrir a nota: documentos, impressão, correção de dados e anexos';
+    botao.onclick = function() { abrirNota(item); };
     return botao;
+  }
+
+  function atualizarBotaoImprimirNota() {
+    const b = $('botaoImprimirNota'), item = notaItem;
+    if (!b || !item) return;
+    b.textContent = item.impressoConf ? '🖨 Reimprimir nota' : '🖨 Imprimir nota';
+    b.title = 'Imprime a nota com o carimbo do recebimento e o pedido de compra, se houver' + (item.impressoConf ? ' (já impressa ' + item.impressoConf + ')' : '');
   }
 
   // Carimbo do recebimento (só no papel: o arquivo guardado continua limpo).
@@ -1377,6 +1402,7 @@
         if (!r.ok) return;
         item.impressoConf = r.impressoConf;
         desenhar();
+        if (notaItem === item) atualizarBotaoImprimirNota();
       })
       .withFailureHandler(function() {})
       .marcarImpressoConferencia(item.id, item.linha);
@@ -1413,7 +1439,7 @@
 
   // Botão da linha: imprime todos os documentos da nota (carimbo na 1ª página) e o pedido, se houver. Não dá baixa.
   async function imprimirNotaCompleta(item, botao) {
-    if (!item.numFotos && !item.numPedido) { mostrarAviso('A nota #' + item.id + ' não tem documento para imprimir. Anexe a nota em "Ver".', false); return; }
+    if (!item.numFotos && !item.numPedido) { mostrarAviso('A nota #' + item.id + ' não tem documento para imprimir. Anexe a nota em "＋ Anexar".', false); return; }
     const texto = botao.textContent;
     botao.disabled = true;
     botao.textContent = 'Preparando...';
@@ -1474,7 +1500,7 @@
 
   function alternarConferido(item, botao, area) {
     const marcar = !item.conferido;
-    if (marcar && !item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa.\n\nDar baixa mesmo assim?')) return;
+    if (marcar && !item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa (imprima em "Ver documento").\n\nDar baixa mesmo assim?')) return;
     const texto = area ? area.value : item.obsConferencia;
     // a tela muda na hora; o servidor grava em segundo plano (se falhar, a nota volta e aparece o aviso)
     const antes = { conferido: item.conferido, dataConferencia: item.dataConferencia, confTs: item.confTs, etapa: item.etapa, obsConferencia: item.obsConferencia };
@@ -1712,6 +1738,7 @@
     docsAtuais = { nota: [], pedido: [] };
     abaDoc = item.numFotos || !item.numPedido ? 'nota' : 'pedido';
     $('notaTitulo').textContent = 'Conferência da nota Nº ' + item.id;
+    atualizarBotaoImprimirNota();
     $('notaSubtitulo').textContent = [item.fazenda || 'Sem fazenda', item.data, item.notaFiscal ? (item.comNf === 'Não' ? 'OS ' : 'NF ') + item.notaFiscal : '', item.fornecedor].filter(Boolean).join(' · ');
     montarDadosNota();
     mostrarAvisoNota('', true);
@@ -2333,6 +2360,7 @@
   $('abaDocNota').onclick = function() { abaDoc = 'nota'; mostrarDocs(); };
   $('abaDocPedido').onclick = function() { abaDoc = 'pedido'; mostrarDocs(); };
   $('botaoImprimirDoc').onclick = imprimirDoc;
+  $('botaoImprimirNota').onclick = function() { if (notaItem) imprimirNotaCompleta(notaItem, $('botaoImprimirNota')); };
   $('botaoAnexarNota').onclick = function() { anexar('nota'); };
   $('inputAnexoLinha').onchange = function() { if (alvoAnexoLinha) anexarNaLinha(alvoAnexoLinha, Array.from(this.files)); };
   // arquivo solto fora de uma linha não abre no navegador (o que tiraria a pessoa da Conferência)
