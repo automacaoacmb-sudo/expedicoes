@@ -148,17 +148,24 @@ const Comum = (() => {
     return pdfLibPromessa;
   }
 
-  // chave de acesso da NF-e (44 dígitos, modelo 55) e o número da nota que vem dentro dela (posições 26 a 34)
+  // Chave de acesso: NF-e de produto (44 dígitos, modelo 55; número da nota nas posições 26 a 34) ou
+  // NFS-e nacional de serviço (DANFSe: 50 dígitos seguidos, logo após "Chave de Acesso da NFS-e").
   function chaveDeAcesso(texto) {
-    for (const b of String(texto || '').match(/(?:\d{4}[\s.]?){10}\d{4}/g) || []) {
+    const t = String(texto || '');
+    for (const b of t.match(/(?:\d{4}[\s.]?){10}\d{4}/g) || []) {
       const chave = b.replace(/\D/g, '');
       if (chave.length === 44 && chave.slice(20, 22) === '55') return chave;
     }
+    if (/NFS-?e/i.test(t)) { const m = t.match(/(?<!\d)\d{50}(?!\d)/); if (m) return m[0]; }
     return '';
   }
   function numeroDaNota(texto, chave) {
-    if (chave) return String(parseInt(chave.slice(25, 34), 10));
-    const m = String(texto || '').match(/N[º°o]\.?\s*:?\s*(\d{1,3}(?:\.\d{3}){1,3}|\d{3,9})/);
+    const t = String(texto || '');
+    if (chave && chave.length === 44) return String(parseInt(chave.slice(25, 34), 10));
+    // DANFSe: "Número da NFS-e 0026.00000000902" (o número é a parte depois do ponto)
+    const s = t.match(/N[úu]mero da NFS-?e\s*:?\s*([\d.]+)/i);
+    if (s) { const partes = s[1].split('.').filter(Boolean); const n = parseInt(partes[partes.length - 1], 10); if (n) return String(n); }
+    const m = t.match(/N[º°o]\.?\s*:?\s*(\d{1,3}(?:\.\d{3}){1,3}|\d{3,9})/);
     return m ? String(parseInt(m[1].replace(/\D/g, ''), 10)) : '';
   }
 
