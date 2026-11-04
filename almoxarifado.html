@@ -512,7 +512,7 @@
       const nDocs = item.numDocs + item.numPedido;
       td(nDocs ? '📎 ' + nDocs : '—', 'nowrap' + (nDocs ? '' : ' vazio-cel'), 'Docs');
       const sit = td('', '');
-      if (item.urgencia) { sit.appendChild(criar('span', 'chip urgente', '🔥 Urgente')); sit.appendChild(document.createTextNode(' ')); }
+      if (item.urgencia) { sit.appendChild(criar('span', 'chip urgente', '⚑ Urgente')); sit.appendChild(document.createTextNode(' ')); }
       const r = rotuloSituacao(item);
       sit.appendChild(criar('span', 'chip ' + r[0], r[1]));
       if (item.notaPedida) sit.appendChild(criar('span', 'sub', '⏳ esperando o conferente anexar a nota'));
@@ -548,7 +548,7 @@
     $('tituloNota').textContent = item.aguardandoNota ? 'Recebido sem nota' : 'NF/OS ' + (item.notaFiscal || '(sem número)');
     $('posicao').textContent = i === -1 ? '' : (i + 1) + ' de ' + visiveis.length;
     $('faixaUrgente').hidden = !item.urgencia;
-    $('faixaUrgente').textContent = '🔥 Urgente (pedido do financeiro): ' + item.urgencia;
+    $('faixaUrgente').textContent = '⚑ Urgente (pedido do financeiro): ' + item.urgencia;
     const dl = $('dadosNota');
     dl.innerHTML = '';
     dadosDaNota(item).forEach(par => { if (!par[1]) return; dl.appendChild(criar('dt', '', par[0])); dl.appendChild(criar('dd', '', par[1])); });
