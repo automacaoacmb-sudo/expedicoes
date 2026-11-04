@@ -264,6 +264,13 @@
   .e-contas { background: #6d28d9; color: #fff; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
   .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
+  .botao-clipe { margin-left: 4px; padding: 4px 7px; }
+  .foto-area.soltar-aqui { outline: 3px dashed var(--cor-primaria); outline-offset: -6px; }
+  .aviso-repetida { margin-top: 8px; padding: 9px 11px; border-radius: 8px; background: rgba(180,83,9,0.10); color: #92400e; font-size: 13px; }
+  .aviso-repetida b { display: block; margin-bottom: 4px; }
+  .aviso-repetida .opcao { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0; border-top: 1px solid rgba(180,83,9,0.2); }
+  .aviso-repetida .opcao:first-of-type { border-top: none; }
+  tbody tr.soltar-aqui td { background: var(--cor-sucesso-fundo) !important; box-shadow: inset 0 2px 0 var(--cor-primaria), inset 0 -2px 0 var(--cor-primaria); }
   .chip-duplicadas { border-color: #b45309; color: #b45309; }
   .chip-duplicadas.ativo { background: #b45309; border-color: #b45309; color: #fff; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; text-transform: none; }
@@ -493,6 +500,7 @@
         <div class="campo-modal largo"><label for="novaFornecedor">Fornecedor</label><input type="text" id="novaFornecedor" autocomplete="off"></div>
         <div class="campo-modal largo"><label for="novaObs">Observação</label><textarea id="novaObs" rows="2"></textarea></div>
       </div>
+      <div class="aviso-repetida" id="novaRepetida" hidden></div>
       <div class="aviso-modal" id="novaAviso"></div>
       <div class="modal-botoes">
         <button type="button" class="botao-principal" id="botaoCriarNota">Registrar nota</button>
@@ -519,6 +527,7 @@
 </div>
 
 <div id="areaImpressao"></div>
+<input type="file" id="inputAnexoLinha" accept="image/*,application/pdf" multiple hidden>
 
 <script>
   const COLUNAS = [
@@ -1003,7 +1012,50 @@
       }
       tr.appendChild(td);
     });
+    if (!item.conferido) permitirSoltarArquivo(tr, item);
     return tr;
+  }
+
+  /* ---------- Anexar a nota fiscal direto na linha (sem abrir a janela) ---------- */
+  let alvoAnexoLinha = null;
+
+  // Arrastar o PDF/foto do computador para cima da linha anexa como documento da nota.
+  function permitirSoltarArquivo(tr, item) {
+    const temArquivo = function(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; };
+    tr.addEventListener('dragover', function(e) { if (!temArquivo(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; tr.classList.add('soltar-aqui'); });
+    tr.addEventListener('dragleave', function(e) { if (!tr.contains(e.relatedTarget)) tr.classList.remove('soltar-aqui'); });
+    tr.addEventListener('drop', function(e) {
+      if (!temArquivo(e)) return;
+      e.preventDefault();
+      tr.classList.remove('soltar-aqui');
+      anexarNaLinha(item, Array.from(e.dataTransfer.files));
+    });
+  }
+
+  function escolherAnexoLinha(item) {
+    alvoAnexoLinha = item;
+    $('inputAnexoLinha').value = '';
+    $('inputAnexoLinha').click();
+  }
+
+  function anexarNaLinha(item, arquivos) {
+    if (!arquivos || !arquivos.length) return;
+    const rotulo = 'Nº ' + item.id + (item.notaFiscal ? ' (NF/OS ' + item.notaFiscal + ')' : '');
+    mostrarAviso('Anexando ' + arquivos.length + ' arquivo(s) à ' + rotulo + '...', true);
+    lerArquivos(arquivos).then(function(lista) {
+      salvamentosPendentes++;
+      google.script.run
+        .withSuccessHandler(function(r) {
+          salvamentosPendentes--;
+          if (!r.ok) { mostrarAviso('Não anexou na ' + rotulo + ': ' + r.mensagem, false); return; }
+          delete cacheDocs[chaveItem(item)];
+          substituirItem(r.item);
+          desenhar();
+          mostrarAviso('Nota fiscal anexada à ' + rotulo + ' ✓' + (r.item.statusLeitura === 'Aguardando' ? ' — entrou na fila de leitura.' : ''), true);
+        })
+        .withFailureHandler(function(erro) { salvamentosPendentes--; mostrarAviso('Não anexou na ' + rotulo + ': ' + erro.message, false); })
+        .anexarDocumento(item.id, item.linha, 'nota', lista);
+    }, function(erro) { mostrarAviso(erro.message, false); });
   }
 
   // Célula de dado que pode ter vindo da leitura da foto: marca com 🤖 e mostra "—" enquanto não há dado.
@@ -1028,6 +1080,14 @@
     botao.title = 'Ver documentos, corrigir dados e anexar nota ou pedido de compra';
     botao.onclick = function() { abrirNota(item); };
     td.appendChild(botao);
+    if (!item.conferido) {
+      const clipe = criar('button', 'botao-docs botao-clipe', '📎');
+      clipe.type = 'button';
+      clipe.title = 'Anexar a nota fiscal a este lançamento (ou arraste o arquivo para cima da linha)';
+      clipe.setAttribute('aria-label', 'Anexar nota fiscal à nota Nº ' + item.id);
+      clipe.onclick = function() { escolherAnexoLinha(item); };
+      td.appendChild(clipe);
+    }
 
     if (item.statusLeitura === 'Aguardando') td.appendChild(sub('⏳ aguardando leitura'));
     else if (item.statusLeitura === 'Não lida') td.appendChild(sub('⚠ não lida', true));
@@ -1415,6 +1475,38 @@
     }
     return pdfjsPromessa;
   }
+  /**
+   * Número da NF lido do próprio PDF (DANFE com texto): pela chave de acesso de 44 dígitos (o número
+   * da nota fica nas posições 26 a 34) ou, sem chave, pelo "Nº 000.000.000" impresso. Foto ou PDF
+   * escaneado (sem texto) devolve null. Lê só as 2 primeiras páginas.
+   */
+  async function lerNfDoArquivo(dataUrl) {
+    if (!/^data:application\/pdf/.test(dataUrl || '')) return null;
+    try {
+      const pdfjs = await carregarPdfJs();
+      const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
+      let texto = '';
+      for (let p = 1; p <= Math.min(2, doc.numPages); p++) {
+        const conteudo = await (await doc.getPage(p)).getTextContent();
+        texto += ' ' + conteudo.items.map(function(i) { return i.str; }).join(' ');
+      }
+      const blocos = texto.match(/(?:\d{4}[\s.]?){10}\d{4}/g) || [];
+      for (const b of blocos) {
+        const chave = b.replace(/\D/g, '');
+        if (chave.length === 44 && chave.slice(20, 22) === '55') return { numero: String(parseInt(chave.slice(25, 34), 10)), chave: chave };
+      }
+      const m = texto.match(/N[º°o]\.?\s*:?\s*(\d{1,3}(?:\.\d{3}){1,3}|\d{3,9})/);
+      return m ? { numero: String(parseInt(m[1].replace(/\D/g, ''), 10)), chave: '' } : null;
+    } catch (e) { return null; }
+  }
+
+  // Lançamentos (pendentes e baixadas recentes) com o mesmo número de NF/OS.
+  function lancamentosComNumero(numero) {
+    const n = String(numero || '').replace(/\D/g, '').replace(/^0+/, '');
+    if (n.length < 3) return [];
+    return dados.pendentes.concat(dados.resolvidas).filter(function(i) { return String(i.notaFiscal || '').replace(/\D/g, '').replace(/^0+/, '') === n; });
+  }
+
   async function pdfParaImagens(dataUrl) {
     if (cachePaginasPdf.has(dataUrl)) return cachePaginasPdf.get(dataUrl);
     const pdfjs = await carregarPdfJs();
@@ -1862,6 +1954,8 @@
     ['novaArquivos', 'novaNF', 'novaValor', 'novaFornecedor', 'novaObs'].forEach(function(id) { $(id).value = ''; });
     $('novaLote').checked = false;
     atualizarLote();
+    confirmouRepetida = false;
+    $('novaRepetida').hidden = true;
     $('novaAviso').textContent = '';
     $('novaAviso').className = 'aviso-modal';
     $('botaoCriarNota').disabled = false;
@@ -1875,22 +1969,88 @@
     $('botaoCriarNota').textContent = lote ? 'Registrar uma nota por arquivo' : 'Registrar nota';
   }
 
+  /* ---------- Nota que já está no sistema: cruzar antes de criar outra ---------- */
+  let confirmouRepetida = false;
+
+  // Mostra os lançamentos com o mesmo número, cada um com "Anexar a esta" (em vez de criar uma nota nova).
+  function verificarRepetida() {
+    const caixa = $('novaRepetida');
+    const achadas = $('novaLote').checked ? [] : lancamentosComNumero($('novaNF').value);
+    caixa.innerHTML = '';
+    caixa.hidden = !achadas.length;
+    confirmouRepetida = false;
+    $('botaoCriarNota').textContent = $('novaLote').checked ? 'Registrar uma nota por arquivo' : 'Registrar nota';
+    if (!achadas.length) return;
+    caixa.appendChild(criar('b', '', '⚠ Esse número já está no sistema. Se for a mesma nota, anexe o arquivo a ela em vez de criar outra:'));
+    achadas.slice(0, 5).forEach(function(i) {
+      const linha = criar('div', 'opcao');
+      linha.appendChild(criar('span', '', 'Nº ' + i.id + ' · ' + (i.fazenda || 'sem fazenda') + ' · ' + i.data + ' · ' + (i.fornecedor || 'fornecedor a ler') + ' · ' + i.etapa));
+      if (!i.conferido) {
+        const b = criar('button', 'botao-docs', '📎 Anexar a esta');
+        b.type = 'button';
+        b.onclick = function() {
+          const arquivos = Array.from($('novaArquivos').files);
+          if (!arquivos.length) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Escolha o arquivo primeiro.'; return; }
+          $('modalNovaNota').hidden = true;
+          anexarNaLinha(i, arquivos);
+        };
+        linha.appendChild(b);
+      }
+      caixa.appendChild(linha);
+    });
+  }
+
+  // Ao escolher o arquivo: lê o número da NF no PDF, preenche o campo (se vazio) e cruza com o que já existe.
+  async function aoEscolherArquivoNova() {
+    const arquivos = Array.from($('novaArquivos').files);
+    if ($('novaLote').checked || !arquivos.length) return;
+    try {
+      const lista = await lerArquivos([arquivos[0]]);
+      const nf = await lerNfDoArquivo(lista[0]);
+      if (nf && !$('novaNF').value.trim()) $('novaNF').value = nf.numero;
+    } catch (e) { /* sem leitura: segue normal */ }
+    verificarRepetida();
+  }
+
+  // Lê cada arquivo uma vez e separa os que parecem já lançados (pelo número dentro do PDF).
+  async function separarRepetidas(arquivos) {
+    const lidos = [];
+    for (const arq of arquivos) {
+      const lista = await lerArquivos([arq]);
+      const nf = await lerNfDoArquivo(lista[0]);
+      lidos.push({ arquivo: arq, lista: lista, iguais: nf ? lancamentosComNumero(nf.numero) : [], numero: nf ? nf.numero : '' });
+    }
+    return lidos;
+  }
+
   // Uma chamada por arquivo, em sequência, mostrando o andamento. As que falharem são listadas no fim.
   async function criarNotasEmLote(arquivos) {
     const botao = $('botaoCriarNota');
     const aviso = $('novaAviso');
+    aviso.className = 'aviso-modal';
+    aviso.textContent = 'Conferindo se alguma já está no sistema...';
+    let lidos;
+    try { lidos = await separarRepetidas(arquivos); } catch (e) { aviso.className = 'aviso-modal erro'; aviso.textContent = e.message; return; }
+    const repetidas = lidos.filter(function(x) { return x.iguais.length; });
+    if (repetidas.length) {
+      const texto = repetidas.map(function(x) { return '• ' + x.arquivo.name + ' (NF ' + x.numero + ') → já existe: Nº ' + x.iguais.map(function(i) { return i.id; }).join(', Nº '); }).join('\n');
+      if (!confirm(repetidas.length + ' arquivo(s) parecem já estar no sistema:\n\n' + texto + '\n\nOK = pular esses e criar só os outros.\nCancelar = voltar (para criar todos, desmarque o lote e envie um por um).')) { aviso.textContent = ''; return; }
+      lidos = lidos.filter(function(x) { return !x.iguais.length; });
+      if (!lidos.length) { aviso.textContent = 'Nada a criar: todos já estavam no sistema.'; return; }
+    }
     const base = { origem: $('novaOrigem').value, fazenda: $('novaFazenda').value, obs: $('novaObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
     const criadas = [], falhas = [], avisos = [];
     botao.disabled = true;
-    for (let i = 0; i < arquivos.length; i++) {
+    for (let i = 0; i < lidos.length; i++) {
       aviso.className = 'aviso-modal';
-      aviso.textContent = 'Enviando ' + (i + 1) + ' de ' + arquivos.length + '...';
+      aviso.textContent = 'Enviando ' + (i + 1) + ' de ' + lidos.length + '...';
+      const arquivosAtual = lidos[i].arquivo;
       try {
-        const lista = await lerArquivos([arquivos[i]]);
-        const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(base, lista); });
+        const lista = lidos[i].lista;
+        const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(Object.assign({}, base, { notaFiscal: lidos[i].numero }), lista); });
         if (r.ok) { criadas.push('#' + r.id); if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso); }
-        else falhas.push(arquivos[i].name + ' (' + r.mensagem + ')');
-      } catch (erro) { falhas.push(arquivos[i].name + ' (' + erro.message + ')'); }
+        else falhas.push(arquivosAtual.name + ' (' + r.mensagem + ')');
+      } catch (erro) { falhas.push(arquivosAtual.name + ' (' + erro.message + ')'); }
     }
     botao.disabled = false;
     if (falhas.length) {
@@ -1907,6 +2067,13 @@
     const arquivos = $('novaArquivos').files;
     if (!arquivos.length) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Anexe a foto ou o PDF da nota.'; return; }
     if ($('novaLote').checked) { criarNotasEmLote(Array.from(arquivos)); return; }
+    // mesmo número já no sistema: pede um segundo clique ("Criar nova mesmo assim")
+    if (lancamentosComNumero($('novaNF').value).length && !confirmouRepetida) {
+      verificarRepetida();
+      confirmouRepetida = true;
+      $('botaoCriarNota').textContent = 'Criar nova mesmo assim';
+      return;
+    }
     const botao = $('botaoCriarNota');
     botao.disabled = true;
     $('novaAviso').className = 'aviso-modal';
@@ -1994,7 +2161,9 @@
   $('botaoLerFotos').onclick = pedirLeitura;
   $('botaoNovaNota').onclick = abrirNovaNota;
   $('botaoCriarNota').onclick = criarNota;
-  $('novaLote').onchange = atualizarLote;
+  $('novaLote').onchange = function() { atualizarLote(); verificarRepetida(); };
+  $('novaArquivos').onchange = aoEscolherArquivoNova;
+  $('novaNF').oninput = verificarRepetida;
   $('vistaMenos').onclick = function() { mudarZoom(-1); };
   $('vistaMais').onclick = function() { mudarZoom(1); };
   $('vistaAjustar').onclick = function() { zoomDoc = 1; aplicarZoom(); };
@@ -2005,6 +2174,20 @@
   $('abaDocPedido').onclick = function() { abaDoc = 'pedido'; mostrarDocs(); };
   $('botaoImprimirDoc').onclick = imprimirDoc;
   $('botaoAnexarNota').onclick = function() { anexar('nota'); };
+  $('inputAnexoLinha').onchange = function() { if (alvoAnexoLinha) anexarNaLinha(alvoAnexoLinha, Array.from(this.files)); };
+  // arquivo solto fora de uma linha não abre no navegador (o que tiraria a pessoa da Conferência)
+  window.addEventListener('dragover', function(e) { e.preventDefault(); });
+  window.addEventListener('drop', function(e) { e.preventDefault(); });
+  // na janela da nota: arrastar o arquivo para a área do documento anexa na aba aberta (nota ou pedido)
+  $('fotoArea').addEventListener('dragover', function(e) { e.preventDefault(); $('fotoArea').classList.add('soltar-aqui'); });
+  $('fotoArea').addEventListener('dragleave', function() { $('fotoArea').classList.remove('soltar-aqui'); });
+  $('fotoArea').addEventListener('drop', function(e) {
+    e.preventDefault();
+    $('fotoArea').classList.remove('soltar-aqui');
+    if (!e.dataTransfer || !e.dataTransfer.files.length || !notaItem || notaItem.conferido) return;
+    tipoAnexo = abaDoc;
+    enviarAnexos(Array.from(e.dataTransfer.files));
+  });
   $('botaoAnexarPedido').onclick = function() { anexar('pedido'); };
   $('inputAnexo').onchange = function() { enviarAnexos($('inputAnexo').files); };
   $('botaoSalvarCorrecao').onclick = salvarCorrecao;
