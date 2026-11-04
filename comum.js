@@ -176,14 +176,15 @@ const Comum = (() => {
       for (const doc of f.documentos || []) {
         const imagens = ehPdf(doc.src) ? await pdfParaImagens(doc.src) : [doc.src];
         imagens.forEach((src, p) => {
+          // a folha inteira é do documento; embaixo, uma faixa com a identificação pequena e o carimbo à direita
           const pagina = criar('section', 'folha-doc');
-          if (doc.legenda) pagina.appendChild(criar('div', 'legenda-doc', doc.legenda));
-          const caixa = criar('div', 'caixa-doc');
           const img = document.createElement('img');
           img.src = src;
-          caixa.appendChild(img);
-          if (p === 0 && doc.carimbo) { caixa.classList.add('com-carimbo'); caixa.appendChild(carimbo(doc.carimbo)); }
-          pagina.appendChild(caixa);
+          pagina.appendChild(img);
+          const rodape = criar('div', 'rodape-doc');
+          rodape.appendChild(criar('div', 'legenda-doc', doc.legenda || ''));
+          if (p === 0 && doc.carimbo) rodape.appendChild(carimbo(doc.carimbo));
+          pagina.appendChild(rodape);
           area.appendChild(pagina);
         });
       }
@@ -210,22 +211,26 @@ const Comum = (() => {
   estilo.textContent = `
     #areaImpressao { display: none; }
     @media print {
-      @page { margin: 12mm; }
+      /* A4 com margem mínima: o documento ocupa a folha; a página de resumo ganha respiro por dentro */
+      @page { size: A4; margin: 4mm 4mm 3mm 4mm; }
+      html, body { margin: 0 !important; padding: 0 !important; }
       html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
       body > *:not(#areaImpressao) { display: none !important; }
       #areaImpressao { display: block !important; color: #000; font: 12px Arial, sans-serif; }
+      #areaImpressao .folha { padding: 8mm 8mm 0; }
       #areaImpressao .folha h2 { font-size: 16px; margin: 0 0 10px; }
       #areaImpressao .tabela-impressao { border-collapse: collapse; width: 100%; }
       #areaImpressao .tabela-impressao th, #areaImpressao .tabela-impressao td { border: 1px solid #999; padding: 5px 7px; text-align: left; vertical-align: top; }
       #areaImpressao .tabela-impressao th { width: 32%; background: #eee; }
-      #areaImpressao .folha-doc { page-break-before: always; break-before: page; }
-      #areaImpressao .legenda-doc { margin-bottom: 6px; font-size: 11px; }
-      #areaImpressao .folha-doc img { max-width: 100%; max-height: 250mm; display: block; }
-      /* com carimbo: a nota encolhe um pouco e o carimbo vai embaixo, à direita, sem cobrir nada */
-      #areaImpressao .caixa-doc { display: flex; flex-direction: column; align-items: flex-start; max-width: 100%; break-inside: avoid; }
-      #areaImpressao .caixa-doc.com-carimbo img { max-height: 205mm; }
+      #areaImpressao .folha-doc {
+        page-break-before: always; break-before: page; break-inside: avoid; page-break-inside: avoid;
+        height: 289mm; display: flex; flex-direction: column; overflow: hidden;
+      }
+      #areaImpressao .folha-doc img { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; object-fit: contain; object-position: center top; display: block; }
+      #areaImpressao .rodape-doc { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 4mm; padding-top: 1.5mm; }
+      #areaImpressao .legenda-doc { font-size: 9px; color: #444; overflow-wrap: anywhere; }
       #areaImpressao .carimbo {
-        align-self: flex-end; margin-top: 4mm; max-width: 100mm; padding: 6px 14px; text-align: center;
+        flex: none; max-width: 100mm; padding: 5px 14px; text-align: center;
         border: 3px double #1d4ed8; border-radius: 6px; color: #1d4ed8; background: #fff;
         font: 700 13px/1.4 Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
