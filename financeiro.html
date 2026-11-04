@@ -394,10 +394,10 @@
   function desenharCartoes() {
     const pend = itens.filter(i => i.etapa !== 'Baixada');
     const etapa = $('filtroEtapa').value;
-    const porEtapa = nome => () => { abaFin = 'pendentes'; $('filtroEtapa').value = etapa === nome ? '' : nome; };
+    const porEtapa = nome => () => { $('filtroEtapa').value = nome; };
     const cartoes = [
       { rotulo: 'Pendentes', numero: pend.length, ativo: abaFin === 'pendentes' && !etapa && !filtroUrgentes && !filtroDuplicadas,
-        acao: () => { abaFin = 'pendentes'; $('filtroEtapa').value = ''; filtroUrgentes = false; filtroDuplicadas = false; } },
+        acao: () => {} },
       { rotulo: 'Aguardando almoxarifado', numero: pend.filter(i => i.etapa === 'Aguardando almoxarifado').length, classe: 'aviso',
         ativo: etapa === 'Aguardando almoxarifado', acao: porEtapa('Aguardando almoxarifado') },
       { rotulo: 'Confirmadas pelo almoxarifado', numero: pend.filter(i => i.etapa === 'Confirmada pelo almoxarifado').length,
@@ -405,9 +405,9 @@
       { rotulo: 'Com divergência', numero: pend.filter(i => i.etapa === 'Divergência').length, classe: 'perigo',
         ativo: etapa === 'Divergência', acao: porEtapa('Divergência') },
       { rotulo: '⚑ Urgentes', numero: pend.filter(i => i.urgencia).length, classe: 'urgente', semBolha: true,
-        ativo: filtroUrgentes, acao: () => { abaFin = 'pendentes'; filtroUrgentes = !filtroUrgentes; } },
+        ativo: filtroUrgentes, acao: () => { filtroUrgentes = true; } },
       { rotulo: '⚠ Possíveis duplicadas', numero: pend.filter(i => i.duplicadaDe.length).length, classe: 'duplicada', semBolha: true,
-        ativo: filtroDuplicadas, acao: () => { abaFin = 'pendentes'; filtroDuplicadas = !filtroDuplicadas; } }
+        ativo: filtroDuplicadas, acao: () => { filtroDuplicadas = true; } }
     ];
     const caixa = $('cartoes');
     caixa.innerHTML = '';
@@ -417,7 +417,13 @@
       if (!c.semBolha) b.appendChild(criar('span', 'bolha'));
       b.appendChild(criar('span', 'rotulo', c.rotulo));
       b.appendChild(criar('span', 'numero', String(c.numero)));
-      b.onclick = () => { c.acao(); desenhar(); };
+      b.onclick = () => {
+        // um clique = só este filtro; clicar no que já está ativo volta para todas as pendentes
+        const jaAtivo = c.ativo;
+        abaFin = 'pendentes'; $('filtroEtapa').value = ''; filtroUrgentes = false; filtroDuplicadas = false;
+        if (!jaAtivo) c.acao();
+        desenhar();
+      };
       caixa.appendChild(b);
     });
   }
