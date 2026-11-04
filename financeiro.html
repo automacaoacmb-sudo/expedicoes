@@ -194,7 +194,7 @@
 
 <script src="comum.js"></script>
 <script>
-  const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet } = Comum;
+  const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet, lerNfDoArquivo } = Comum;
   const $ = id => document.getElementById(id);
   const chave = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)).get('t') || '';
   const ETAPAS = ['Nota solicitada', 'Aguardando leitura', 'Faltam dados', 'Aguardando almoxarifado', 'Fazenda errada', 'Confirmada pelo almoxarifado', 'Divergência', 'Baixada'];
@@ -598,14 +598,33 @@
     const msg = $('anexoAviso');
     const botao = $('botaoEnviarAnexo');
     const dados = { fazenda: $('anexoFazenda').value, obs: $('anexoObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
+    // lê cada arquivo uma vez e separa os que parecem já estar na lista (pelo número dentro do PDF)
+    msg.className = 'aviso-modal';
+    msg.textContent = 'Conferindo se alguma já está na lista...';
+    let lidos = [];
+    try {
+      for (const arq of arquivos) {
+        const lista = await lerArquivos([arq]);
+        const nf = await lerNfDoArquivo(lista[0]);
+        lidos.push({ arquivo: arq, lista: lista, numero: nf ? nf.numero : '', iguais: nf ? parecidasNaLista(nf.numero) : [] });
+      }
+    } catch (e) { msg.className = 'aviso-modal erro'; msg.textContent = e.message; return; }
+    const repetidas = lidos.filter(x => x.iguais.length);
+    if (repetidas.length) {
+      const texto = repetidas.map(x => '• ' + x.arquivo.name + ' (NF ' + x.numero + ') → já existe: Nº ' + x.iguais.map(i => i.id).join(', Nº ')).join('\n');
+      if (!confirm(repetidas.length + ' arquivo(s) parecem já estar na lista:\n\n' + texto + '\n\nOK = pular esses e enviar só os outros.\nCancelar = voltar.')) { msg.textContent = ''; return; }
+      lidos = lidos.filter(x => !x.iguais.length);
+      if (!lidos.length) { msg.textContent = 'Nada a enviar: todas já estavam na lista.'; return; }
+    }
+    arquivos = lidos.map(x => x.arquivo);
     const criadas = [], falhas = [], avisos = [];
     botao.disabled = true;
     for (let i = 0; i < arquivos.length; i++) {
       msg.className = 'aviso-modal';
       msg.textContent = 'Enviando ' + (i + 1) + ' de ' + arquivos.length + '...';
       try {
-        const lista = await lerArquivos([arquivos[i]]);
-        const r = await api('finEnviarNota', { token: chave, nome: nome(), arquivos: lista, dados: dados }, 180000);
+        const lista = lidos[i].lista;
+        const r = await api('finEnviarNota', { token: chave, nome: nome(), arquivos: lista, dados: Object.assign({}, dados, { notaFiscal: lidos[i].numero }) }, 180000);
         criadas.push('#' + r.id);
         if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso);
       } catch (e) { falhas.push(arquivos[i].name + ' (' + e.message + ')'); }
@@ -683,6 +702,17 @@
   $('botaoEnviarAnexo').onclick = enviarAnexo;
   $('anexoLote').onchange = atualizarLote;
   $('anexoNF').oninput = () => { confirmouDuplicada = false; atualizarLote(); avisarParecidas(); };
+  // ao escolher o arquivo: lê o número da NF no PDF, preenche o campo (se vazio) e já cruza com a lista
+  $('anexoArquivos').onchange = async () => {
+    const arquivos = $('anexoArquivos').files;
+    if ($('anexoLote').checked || !arquivos.length) return;
+    try {
+      const lista = await lerArquivos([arquivos[0]]);
+      const nf = await lerNfDoArquivo(lista[0]);
+      if (nf && !$('anexoNF').value.trim()) { $('anexoNF').value = nf.numero; confirmouDuplicada = false; atualizarLote(); }
+    } catch (e) { /* sem leitura: segue normal */ }
+    avisarParecidas();
+  };
   $('botaoUrgenciaLote').onclick = () => urgenciaEmLote(false);
   $('botaoTirarUrgenciaLote').onclick = () => urgenciaEmLote(true);
   $('botaoLimparSelecao').onclick = () => { selecionadas.clear(); desenhar(); };
