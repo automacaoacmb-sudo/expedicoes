@@ -9,13 +9,12 @@
 <title>Financeiro - Notas e processos</title>
 <style>
   :root {
-    --cor-primaria: #2e7d4f; --cor-primaria-escura: #205c39; --cor-fundo: #f3f6f2; --cor-cartao: #ffffff;
-    --cor-texto: #1c2620; --cor-texto-suave: #6b7a70; --cor-borda: #dbe4dc; --cor-zebra: #f6f9f5;
+    color-scheme: light;
+    --cor-primaria: #2f7d55; --cor-primaria-escura: #266846; --cor-fundo: #f6f8f6; --cor-cartao: #ffffff;
+    --cor-texto: #202b25; --cor-texto-suave: #738078; --cor-borda: #e2e8e3; --cor-zebra: #f7f9f7;
+    --cor-cabecalho: #f7f9f7; --cor-realce: #edf5ef; --sombra: 0 8px 28px rgba(23, 37, 27, 0.07);
     --cor-erro: #c0392b; --cor-erro-fundo: #fdecea; --cor-ok-fundo: #e6f4ea; --cor-aviso: #8a5a00; --cor-aviso-fundo: #fff4d6;
     --cor-azul: #1f5fa8; --cor-azul-fundo: #e7f0fb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --cor-fundo: #10140f; --cor-cartao: #1a2118; --cor-texto: #eef2ec; --cor-texto-suave: #9fb0a4; --cor-borda: #2c362a; --cor-zebra: #1e261c; --cor-erro-fundo: #3a1f1c; --cor-ok-fundo: #16281c; --cor-aviso: #f3c969; --cor-aviso-fundo: #3a2f12; --cor-azul: #8fb9ef; --cor-azul-fundo: #182638; }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -107,12 +106,96 @@
   @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
+
+  /* ===== Visual igual ao da Conferência ===== */
+  body { font-family: Inter, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif; font-size: 13px; }
+  .topo { flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; min-height: 62px; padding: 10px 22px; background: var(--cor-cartao); color: var(--cor-texto); border-bottom: 1px solid var(--cor-borda); }
+  .marca { display: flex; align-items: center; gap: 12px; }
+  .marca-icone { width: 36px; height: 36px; border-radius: 10px; background: var(--cor-realce); display: grid; place-items: center; font-size: 18px; flex: none; }
+  .topo h1 { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -0.3px; }
+  .topo h1 small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--cor-texto-suave); letter-spacing: 0; }
+  .topo .acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .topo .quem { font-size: 12px; color: var(--cor-texto-suave); margin-right: 6px; }
+  .topo .quem button { background: none; border: none; color: var(--cor-primaria); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+  .botao-topo { border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); white-space: nowrap; }
+  .botao-topo:hover { background: var(--cor-zebra); }
+  .botao-topo.destaque { background: var(--cor-primaria); color: #fff; border-color: var(--cor-primaria); }
+  .botao-topo.destaque:hover { background: var(--cor-primaria-escura); }
+  main { padding: 16px 22px 18px; max-width: 1900px; }
+
+  .linha-resumo { flex: none; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .cartoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cartao-num { height: 30px; display: inline-flex; align-items: center; gap: 7px; padding: 0 11px 0 9px; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 8px; font: inherit; font-size: 12px; color: var(--cor-texto-suave); cursor: pointer; white-space: nowrap; }
+  .cartao-num:hover { border-color: #b8cfc0; color: var(--cor-texto); }
+  .cartao-num.ativo { border-color: var(--cor-primaria); color: var(--cor-texto); background: var(--cor-realce); }
+  .cartao-num .bolha { width: 8px; height: 8px; border-radius: 50%; background: #8fb59c; flex: none; }
+  .cartao-num.aviso .bolha { background: #7fa3c9; }
+  .cartao-num.perigo .bolha { background: #d98b82; }
+  .cartao-num .rotulo { font-weight: 600; }
+  .cartao-num .numero { font-size: 13px; font-weight: 750; color: var(--cor-texto); }
+  .cartao-num.urgente { color: #b8501c; border-color: #f4d3bd; }
+  .cartao-num.urgente.ativo { background: #fdeee4; border-color: #e8a57d; }
+  .cartao-num.duplicada { color: #a2620f; border-color: #eedab4; }
+  .cartao-num.duplicada.ativo { background: #fff4e0; border-color: #ddb26a; }
+  #busca { margin-left: auto; width: 220px; height: 30px; font: inherit; font-size: 12px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); outline: none; flex: none; transition: width 0.15s; min-width: 0; }
+  #busca:focus { width: 300px; border-color: #9fbfab; box-shadow: 0 0 0 2px rgba(47, 125, 85, 0.10); }
+
+  .painel { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 12px; box-shadow: var(--sombra); overflow: hidden; }
+  .painel .barra { padding: 9px 15px; margin: 0; border-bottom: 1px solid var(--cor-borda); gap: 8px 14px; }
+  .barra select { font: inherit; font-size: 12px; height: 28px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); }
+  .barra label { font-size: 12px; color: var(--cor-texto-suave); }
+  .info { font-size: 11px; }
+  .abas-fin { display: flex; gap: 4px; border: none; border-radius: 0; overflow: visible; }
+  .abas-fin button { border: 0; background: transparent; color: var(--cor-texto-suave); border-radius: 7px; padding: 8px 13px; font-size: 13px; }
+  .abas-fin button.ativa { background: var(--cor-realce); color: var(--cor-primaria); }
+  .abas-fin button b { display: inline-block; min-width: 20px; margin-left: 5px; padding: 1px 6px; border-radius: 999px; background: rgba(128,128,128,0.16); font-size: 10.5px; text-align: center; opacity: 1; }
+  .selecao { background: var(--cor-azul-fundo); color: var(--cor-azul); font-size: 12px; }
+
+  .tabela-wrap { border: none; border-radius: 0; scrollbar-width: thin; }
+  table { font-size: 12px; }
+  thead th { background: var(--cor-cabecalho); color: var(--cor-texto-suave); font-weight: 700; padding: 9px 8px 7px; }
+  thead tr:first-child th { border-bottom: none; }
+  thead tr.filtros th { padding: 0 8px 8px; border-bottom: 1px solid var(--cor-borda); }
+  thead tr.filtros input { font-size: 11px; padding: 5px 6px; border-radius: 5px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); outline: none; }
+  thead tr.filtros input:focus { border-color: #77a58a; box-shadow: 0 0 0 2px rgba(40, 103, 71, 0.12); }
+  thead th:first-child, tbody td:first-child { padding-left: 15px; }
+  th.sel input, td.sel input { accent-color: var(--cor-primaria); }
+  tbody td { padding: 9px 8px; }
+  tbody tr:nth-child(even) td { background: #f7f9f7; } /* zebrado */
+  tbody tr:hover td { background: #eef5f0; }
+  tbody tr.selecionada td { background: var(--cor-azul-fundo) !important; }
+  .chip { padding: 4px 9px; font-size: 10.5px; }
+  .e-aguardando { background: #eef2f5; color: #5b7185; }
+  .e-faltam { background: #fff0ed; color: #b54c3e; }
+  .e-pronta { background: #f0f2f0; color: #4c5a51; }
+  .e-enviada { background: #edf3fb; color: #4b6e9d; }
+  .e-confirmada { background: #eaf4ed; color: #34734b; }
+  .e-divergencia { background: #fde8e5; color: #b4453a; box-shadow: inset 0 0 0 1px #f3c4bd; }
+  .e-baixada { background: #edf0ed; color: #68766d; }
+  .sub.urgente { color: #b8501c; }
+  .sub.duplicada { color: #a2620f; }
+  .botao-urgencia { color: #b8501c; font-size: 11.5px; white-space: nowrap; }
+  td.acao { white-space: nowrap; }
+  tbody tr.urgente td:first-child { box-shadow: inset 4px 0 0 #eeb05a; }
+  td .botao-sec, td .botao { padding: 0 12px; height: 28px; font-size: 12px; }
+  td .botao-sec { border: 1.5px solid var(--cor-primaria); color: var(--cor-primaria); background: transparent; }
+  td .botao-sec:hover { background: var(--cor-realce); }
+  .modal-topo { background: var(--cor-cartao); color: var(--cor-texto); border-bottom: 1px solid var(--cor-borda); }
+  .modal-topo .fechar { color: var(--cor-texto-suave); }
+  @media (max-width: 760px) {
+    .topo, main { padding-left: 12px; padding-right: 12px; }
+    #busca, #busca:focus { width: 100%; margin-left: 0; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>💰 Financeiro · notas e processos</h1>
-  <span class="quem" id="quem"></span>
+<header class="topo">
+  <div class="marca"><div class="marca-icone">💰</div><h1>Financeiro<small>Notas e processos · acompanhamento até o pagamento</small></h1></div>
+  <div class="acoes">
+    <span class="quem" id="quem"></span>
+    <button class="botao-topo" id="botaoAnexar">＋ Anexar nota que não está na lista</button>
+    <button class="botao-topo destaque" id="botaoAtualizar">↻ Atualizar</button>
+  </div>
 </header>
 
 <main>
@@ -127,12 +210,17 @@
   </section>
 
   <section id="telaLista" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <!-- resumo (clicar filtra) à esquerda e a busca geral encostada na margem direita -->
+    <div class="linha-resumo">
+      <div class="cartoes" id="cartoes" aria-label="Resumo"></div>
+      <input type="search" id="busca" placeholder="⌕ Buscar em tudo...">
+    </div>
+    <div class="painel">
     <div class="barra">
       <span class="abas-fin">
         <button id="abaPendentes" class="ativa">Pendentes <b id="contaPendentes"></b></button>
         <button id="abaBaixadas">Baixadas <b id="contaBaixadas"></b></button>
       </span>
-      <input type="search" id="busca" placeholder="Buscar NF, fornecedor, fazenda, SC...">
       <select id="filtroEtapa"><option value="">Todas as etapas</option></select>
       <label><input type="checkbox" id="soMinhas"> Só as que eu anexei</label>
       <span class="info" id="info"></span>
@@ -142,15 +230,13 @@
         <button class="botao-sec" id="botaoTirarUrgenciaLote">Tirar urgência</button>
         <button class="link-sec" id="botaoLimparSelecao">limpar seleção</button>
       </span>
-      <span style="flex:1"></span>
-      <button class="botao" id="botaoAnexar">＋ Anexar nota que não está na lista</button>
-      <button class="botao-sec" id="botaoAtualizar">↻ Atualizar</button>
     </div>
     <div class="tabela-wrap">
       <table>
         <thead id="cabecalho"></thead>
         <tbody id="corpo"><tr><td colspan="10" class="vazio">Carregando...</td></tr></tbody>
       </table>
+    </div>
     </div>
   </section>
 </main>
@@ -303,6 +389,39 @@
     cab.appendChild(t2);
   }
 
+  // Números do resumo: uma linha discreta; clicar filtra a lista (clicar de novo desfaz)
+  let filtroUrgentes = false, filtroDuplicadas = false;
+  function desenharCartoes() {
+    const pend = itens.filter(i => i.etapa !== 'Baixada');
+    const etapa = $('filtroEtapa').value;
+    const porEtapa = nome => () => { abaFin = 'pendentes'; $('filtroEtapa').value = etapa === nome ? '' : nome; };
+    const cartoes = [
+      { rotulo: 'Pendentes', numero: pend.length, ativo: abaFin === 'pendentes' && !etapa && !filtroUrgentes && !filtroDuplicadas,
+        acao: () => { abaFin = 'pendentes'; $('filtroEtapa').value = ''; filtroUrgentes = false; filtroDuplicadas = false; } },
+      { rotulo: 'Aguardando almoxarifado', numero: pend.filter(i => i.etapa === 'Aguardando almoxarifado').length, classe: 'aviso',
+        ativo: etapa === 'Aguardando almoxarifado', acao: porEtapa('Aguardando almoxarifado') },
+      { rotulo: 'Confirmadas pelo almoxarifado', numero: pend.filter(i => i.etapa === 'Confirmada pelo almoxarifado').length,
+        ativo: etapa === 'Confirmada pelo almoxarifado', acao: porEtapa('Confirmada pelo almoxarifado') },
+      { rotulo: 'Com divergência', numero: pend.filter(i => i.etapa === 'Divergência').length, classe: 'perigo',
+        ativo: etapa === 'Divergência', acao: porEtapa('Divergência') },
+      { rotulo: '⚑ Urgentes', numero: pend.filter(i => i.urgencia).length, classe: 'urgente', semBolha: true,
+        ativo: filtroUrgentes, acao: () => { abaFin = 'pendentes'; filtroUrgentes = !filtroUrgentes; } },
+      { rotulo: '⚠ Possíveis duplicadas', numero: pend.filter(i => i.duplicadaDe.length).length, classe: 'duplicada', semBolha: true,
+        ativo: filtroDuplicadas, acao: () => { abaFin = 'pendentes'; filtroDuplicadas = !filtroDuplicadas; } }
+    ];
+    const caixa = $('cartoes');
+    caixa.innerHTML = '';
+    cartoes.forEach(c => {
+      const b = criar('button', 'cartao-num ' + (c.classe || '') + (c.ativo ? ' ativo' : ''));
+      b.type = 'button';
+      if (!c.semBolha) b.appendChild(criar('span', 'bolha'));
+      b.appendChild(criar('span', 'rotulo', c.rotulo));
+      b.appendChild(criar('span', 'numero', String(c.numero)));
+      b.onclick = () => { c.acao(); desenhar(); };
+      caixa.appendChild(b);
+    });
+  }
+
   function atualizarSelecao() {
     // tira da seleção o que já foi baixado ou sumiu da lista
     const validas = new Set(itens.filter(i => i.etapa !== 'Baixada').map(chaveDe));
@@ -324,12 +443,15 @@
     const minhas = $('soMinhas').checked;
     const ativos = COLUNAS.filter(c => c.chave && (filtros[c.chave] || '').trim()).map(c => [c, normalizar(filtros[c.chave].trim())]);
     const daAba = itens.filter(i => (i.etapa === 'Baixada') === (abaFin === 'baixadas'));
-    $('contaPendentes').textContent = '(' + itens.filter(i => i.etapa !== 'Baixada').length + ')';
-    $('contaBaixadas').textContent = '(' + itens.filter(i => i.etapa === 'Baixada').length + ')';
+    $('contaPendentes').textContent = itens.filter(i => i.etapa !== 'Baixada').length;
+    $('contaBaixadas').textContent = itens.filter(i => i.etapa === 'Baixada').length;
+    desenharCartoes();
     $('abaPendentes').className = abaFin === 'pendentes' ? 'ativa' : '';
     $('abaBaixadas').className = abaFin === 'baixadas' ? 'ativa' : '';
     visiveis = daAba.filter(i =>
       (!etapa || i.etapa === etapa) &&
+      (!filtroUrgentes || i.urgencia) &&
+      (!filtroDuplicadas || i.duplicadaDe.length) &&
       (!minhas || normalizar(i.solicitadoPor) === normalizar(nome())) &&
       (!busca || normalizar(textoItem(i)).indexOf(busca) !== -1) &&
       ativos.every(par => normalizar(par[0].texto(i)).indexOf(par[1]) !== -1));
@@ -347,14 +469,14 @@
       return;
     }
     visiveis.forEach(i => {
-      const tr = criar('tr', selecionadas.has(chaveDe(i)) ? 'selecionada' : '');
+      const tr = criar('tr', (selecionadas.has(chaveDe(i)) ? 'selecionada' : '') + (i.urgencia ? ' urgente' : ''));
       const tdSel = criar('td', 'sel');
       if (i.etapa !== 'Baixada') {
         const cx = document.createElement('input');
         cx.type = 'checkbox';
         cx.checked = selecionadas.has(chaveDe(i));
         cx.setAttribute('aria-label', 'Selecionar nota #' + i.id);
-        cx.onchange = () => { if (cx.checked) selecionadas.add(chaveDe(i)); else selecionadas.delete(chaveDe(i)); tr.className = cx.checked ? 'selecionada' : ''; atualizarSelecao(); };
+        cx.onchange = () => { if (cx.checked) selecionadas.add(chaveDe(i)); else selecionadas.delete(chaveDe(i)); tr.classList.toggle('selecionada', cx.checked); atualizarSelecao(); };
         tdSel.appendChild(cx);
       }
       tr.appendChild(tdSel);
@@ -376,7 +498,7 @@
       if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '⚑ Urgente: ' + i.urgencia));
       if (i.duplicadaDe.length) tdEtapa.appendChild(criar('span', 'sub duplicada', '⚠ possível duplicada de #' + i.duplicadaDe.join(', #') + ' (o conferente verifica)'));
       tr.appendChild(tdEtapa);
-      const tdAcao = criar('td');
+      const tdAcao = criar('td', 'acao');
       const pronto = i.etapa === 'Baixada';
       const b = criar('button', pronto ? 'botao' : 'botao-sec', pronto ? '🖨 Processo' : 'Ver');
       b.onclick = () => abrirProcesso(i);
