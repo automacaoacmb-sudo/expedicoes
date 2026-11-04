@@ -138,7 +138,7 @@
       <span class="info" id="info"></span>
       <span class="selecao" id="barraSelecao" hidden>
         <b id="contaSelecao"></b>
-        <button class="botao-sec urgente" id="botaoUrgenciaLote">🔥 Pedir urgência</button>
+        <button class="botao-sec urgente" id="botaoUrgenciaLote">⚑ Pedir urgência</button>
         <button class="botao-sec" id="botaoTirarUrgenciaLote">Tirar urgência</button>
         <button class="link-sec" id="botaoLimparSelecao">limpar seleção</button>
       </span>
@@ -373,7 +373,7 @@
       if (a.situacao === 'Recebido') tdEtapa.appendChild(criar('span', 'sub', 'Recebido ' + a.dataRecebimento + (a.frota ? ' · Frota ' + a.frota : '') + (a.por ? ' · ' + a.por : '')));
       else if (a.situacao) tdEtapa.appendChild(criar('span', 'sub alerta', a.situacao + (a.obs ? ' · ' + a.obs : '')));
       if (i.scDivergente) tdEtapa.appendChild(criar('span', 'sub alerta', 'SC informada diferente da declarada'));
-      if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '🔥 Urgente: ' + i.urgencia));
+      if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '⚑ Urgente: ' + i.urgencia));
       if (i.duplicadaDe.length) tdEtapa.appendChild(criar('span', 'sub duplicada', '⚠ possível duplicada de #' + i.duplicadaDe.join(', #') + ' (o conferente verifica)'));
       tr.appendChild(tdEtapa);
       const tdAcao = criar('td');
@@ -382,7 +382,7 @@
       b.onclick = () => abrirProcesso(i);
       tdAcao.appendChild(b);
       if (!pronto) {
-        const u = criar('button', 'botao-urgencia', i.urgencia ? 'Tirar urgência' : '🔥 Pedir urgência');
+        const u = criar('button', 'botao-urgencia', i.urgencia ? 'Tirar urgência' : '⚑ Pedir urgência');
         u.title = i.urgencia ? 'Tirar o destaque de urgência' : 'Destaca a nota para o conferente e para o almoxarifado';
         u.onclick = () => alternarUrgencia(i, u);
         tdAcao.appendChild(u);
