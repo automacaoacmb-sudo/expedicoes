@@ -263,7 +263,8 @@
       <div class="campos">
         <div class="campo largo"><label for="anexoArquivos">Foto(s) ou PDF da nota *</label><input type="file" id="anexoArquivos" accept="image/*,application/pdf" multiple>
           <label class="check-lote"><input type="checkbox" id="anexoLote"> Envio em lote: cada arquivo é uma nota diferente (os dados de cada uma vêm da leitura)</label></div>
-        <div class="campo"><label for="anexoFazenda">Fazenda *</label><select id="anexoFazenda"></select></div>
+        <div class="campo"><label for="anexoFazenda">Fazenda *</label><select id="anexoFazenda"></select>
+          <div class="info" style="margin-top:4px">"Definir pela nota" procura a inscrição estadual da fazenda na própria nota.</div></div>
         <div class="campo"><label for="anexoNF">NF/OS</label><input type="text" id="anexoNF" autocomplete="off"></div>
         <div class="campo"><label for="anexoFornecedor">Fornecedor</label><input type="text" id="anexoFornecedor" autocomplete="off"></div>
         <div class="campo"><label for="anexoValor">Valor (R$)</label><input type="text" id="anexoValor" inputmode="decimal" autocomplete="off"></div>
@@ -280,7 +281,8 @@
 
 <script src="comum.js"></script>
 <script>
-  const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet, lerNfDoArquivo } = Comum;
+  const { criar, moeda, api, lerArquivos, ehPdf, urlDeDados, imprimir, lsGet, lsSet, lerNfDoArquivo, separarNotasPdf } = Comum;
+  const PELA_NOTA = '__nota__'; // fazenda sai da inscrição estadual escrita na nota (aba Cadastros, coluna H)
   const $ = id => document.getElementById(id);
   const chave = new URLSearchParams(location.hash.slice(1) || location.search.slice(1)).get('t') || '';
   const ETAPAS = ['Nota solicitada', 'Aguardando leitura', 'Faltam dados', 'Aguardando almoxarifado', 'Fazenda errada', 'Confirmada pelo almoxarifado', 'Divergência', 'Baixada'];
@@ -704,7 +706,11 @@
     confirmouDuplicada = false;
     const sel = $('anexoFazenda');
     sel.innerHTML = '';
-    [''].concat(fazendas).forEach(f => { const o = criar('option', '', f || 'Escolha a fazenda...'); o.value = f; sel.appendChild(o); });
+    [''].concat([PELA_NOTA], fazendas).forEach(f => {
+      const o = criar('option', '', f === PELA_NOTA ? '🔎 Definir pela nota (inscrição estadual)' : (f || 'Escolha a fazenda...'));
+      o.value = f;
+      sel.appendChild(o);
+    });
     ['anexoArquivos', 'anexoNF', 'anexoFornecedor', 'anexoValor', 'anexoObs'].forEach(id => { $(id).value = ''; });
     $('anexoLote').checked = false;
     atualizarLote();
@@ -719,43 +725,59 @@
     const lote = $('anexoLote').checked;
     ['anexoNF', 'anexoFornecedor', 'anexoValor'].forEach(id => { $(id).disabled = lote; if (lote) $(id).value = ''; });
     $('botaoEnviarAnexo').textContent = lote ? 'Enviar uma nota por arquivo' : 'Enviar para o conferente';
+    if (lote && !$('anexoFazenda').value) $('anexoFazenda').value = PELA_NOTA; // em lote, cada nota pode ser de uma fazenda
   }
 
-  // Uma nota por arquivo, em sequência, mostrando o andamento. As que falharem são listadas no fim.
-  async function enviarEmLote(arquivos) {
+  // Cada arquivo vira uma ou mais notas: um PDF com várias notas é separado pela chave de acesso.
+  async function unidadesDosArquivos(arquivos) {
+    const unidades = [];
+    for (const arq of arquivos) {
+      const lista = await lerArquivos([arq]);
+      const partes = await separarNotasPdf(lista[0]);
+      partes.forEach((p, k) => unidades.push({
+        nome: arq.name + (partes.length > 1 ? ' (nota ' + (k + 1) + ' de ' + partes.length + ')' : ''),
+        lista: [p.dataUrl], numero: p.numero, texto: p.texto
+      }));
+    }
+    return unidades;
+  }
+
+  function textoResultadoFazenda(r) {
+    if (!r.pelaNota) return '';
+    return r.fazenda ? ' → ' + r.fazenda : ' → sem fazenda (a leitura tenta achar; se não, o conferente escolhe)';
+  }
+
+  // Uma nota por vez, em sequência, mostrando o andamento. As que falharem são listadas no fim.
+  // unidades já lidas (de unidadesDosArquivos) ou arquivos a ler: um PDF com várias notas vira várias.
+  async function enviarEmLote(arquivos, unidadesProntas) {
     const msg = $('anexoAviso');
     const botao = $('botaoEnviarAnexo');
     const dados = { fazenda: $('anexoFazenda').value, obs: $('anexoObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
-    // lê cada arquivo uma vez e separa os que parecem já estar na lista (pelo número dentro do PDF)
     msg.className = 'aviso-modal';
-    msg.textContent = 'Conferindo se alguma já está na lista...';
+    msg.textContent = 'Separando as notas e conferindo se alguma já está na lista...';
     let lidos = [];
     try {
-      for (const arq of arquivos) {
-        const lista = await lerArquivos([arq]);
-        const nf = await lerNfDoArquivo(lista[0]);
-        lidos.push({ arquivo: arq, lista: lista, numero: nf ? nf.numero : '', iguais: nf ? parecidasNaLista(nf.numero) : [] });
-      }
+      const unidades = unidadesProntas || await unidadesDosArquivos(arquivos);
+      lidos = unidades.map(u => ({ nome: u.nome, lista: u.lista, numero: u.numero, texto: u.texto, iguais: u.numero ? parecidasNaLista(u.numero) : [] }));
     } catch (e) { msg.className = 'aviso-modal erro'; msg.textContent = e.message; return; }
     const repetidas = lidos.filter(x => x.iguais.length);
     if (repetidas.length) {
-      const texto = repetidas.map(x => '• ' + x.arquivo.name + ' (NF ' + x.numero + ') → já existe: Nº ' + x.iguais.map(i => i.id).join(', Nº ')).join('\n');
+      const texto = repetidas.map(x => '• ' + x.nome + ' (NF ' + x.numero + ') → já existe: Nº ' + x.iguais.map(i => i.id).join(', Nº ')).join('\n');
       if (!confirm(repetidas.length + ' arquivo(s) parecem já estar na lista:\n\n' + texto + '\n\nOK = pular esses e enviar só os outros.\nCancelar = voltar.')) { msg.textContent = ''; return; }
       lidos = lidos.filter(x => !x.iguais.length);
       if (!lidos.length) { msg.textContent = 'Nada a enviar: todas já estavam na lista.'; return; }
     }
-    arquivos = lidos.map(x => x.arquivo);
     const criadas = [], falhas = [], avisos = [];
     botao.disabled = true;
-    for (let i = 0; i < arquivos.length; i++) {
+    for (let i = 0; i < lidos.length; i++) {
       msg.className = 'aviso-modal';
-      msg.textContent = 'Enviando ' + (i + 1) + ' de ' + arquivos.length + '...';
+      msg.textContent = 'Enviando ' + (i + 1) + ' de ' + lidos.length + '...';
       try {
-        const lista = lidos[i].lista;
-        const r = await api('finEnviarNota', { token: chave, nome: nome(), arquivos: lista, dados: Object.assign({}, dados, { notaFiscal: lidos[i].numero }) }, 180000);
-        criadas.push('#' + r.id);
+        const r = await api('finEnviarNota', { token: chave, nome: nome(), arquivos: lidos[i].lista, textoNota: lidos[i].texto,
+          dados: Object.assign({}, dados, { notaFiscal: lidos[i].numero }) }, 180000);
+        criadas.push('#' + r.id + textoResultadoFazenda(r));
         if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso);
-      } catch (e) { falhas.push(arquivos[i].name + ' (' + e.message + ')'); }
+      } catch (e) { falhas.push(lidos[i].nome + ' (' + e.message + ')'); }
     }
     botao.disabled = false;
     if (falhas.length) {
@@ -774,6 +796,17 @@
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
     if (!$('anexoFazenda').value) { msg.className = 'aviso-modal erro'; msg.textContent = 'Escolha a fazenda.'; $('anexoFazenda').focus(); return; }
     if ($('anexoLote').checked) { enviarEmLote(Array.from(arquivos)); return; }
+    // um PDF com várias notas: oferece lançar uma nota para cada (separadas pela chave de acesso)
+    let unidades;
+    msg.className = 'aviso-modal';
+    msg.textContent = 'Lendo o arquivo...';
+    try { unidades = await unidadesDosArquivos(Array.from(arquivos)); } catch (e) { msg.className = 'aviso-modal erro'; msg.textContent = e.message; return; }
+    msg.textContent = '';
+    const multiplas = unidades.length > arquivos.length;
+    if (multiplas && confirm('Encontrei ' + unidades.length + ' notas diferentes no(s) arquivo(s).\n\nOK = lançar uma nota para cada (recomendado).\nCancelar = lançar tudo como uma nota só.')) {
+      enviarEmLote(Array.from(arquivos), unidades);
+      return;
+    }
     // número que já está na lista: pede um segundo clique ("Enviar mesmo assim")
     if (parecidasNaLista($('anexoNF').value).length && !confirmouDuplicada) {
       confirmouDuplicada = true;
@@ -789,11 +822,11 @@
     try {
       const lista = await lerArquivos(arquivos);
       const r = await api('finEnviarNota', {
-        token: chave, nome: nome(), arquivos: lista,
+        token: chave, nome: nome(), arquivos: lista, textoNota: unidades.map(u => u.texto).join(' ').slice(0, 40000),
         dados: { fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
       }, 180000);
       $('modalAnexar').hidden = true;
-      aviso('Nota enviada ao conferente e ao almoxarifado (#' + r.id + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
+      aviso('Nota enviada ao conferente e ao almoxarifado (#' + r.id + textoResultadoFazenda(r) + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
       carregar();
     } catch (e) {
       msg.className = 'aviso-modal erro';
