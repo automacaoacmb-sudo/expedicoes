@@ -104,6 +104,9 @@
   .telinha { max-width: 420px; margin: 30px auto; background: var(--cor-cartao); border-radius: 14px; padding: 18px; }
   .telinha input { width: 100%; font-size: 16px; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--cor-borda); background: var(--cor-fundo); color: var(--cor-texto); margin: 8px 0 12px; }
   @media (max-width: 640px) { .campos { grid-template-columns: 1fr; } }
+  .botao-excluir { border: 1px solid #f0c9c3; background: transparent; color: #b4453a; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+  .botao-excluir:hover { background: #fdeceb; }
+  .botao-excluir:disabled { opacity: 0.6; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -250,6 +253,8 @@
       <div class="botoes">
         <button class="botao" id="botaoImprimir">🖨 Imprimir processo</button>
         <button class="botao-sec" data-fechar="modalProcesso">Fechar</button>
+        <span style="flex:1"></span>
+        <button class="botao-excluir" id="botaoExcluirFin" hidden title="Só nota que você lançou, enquanto o almoxarifado não respondeu">🗑 Excluir lançamento</button>
       </div>
     </div>
   </div>
@@ -604,6 +609,8 @@
     $('procConteudo').textContent = 'Carregando...';
     $('procAviso').textContent = '';
     $('botaoImprimir').disabled = true;
+    // excluir: só a nota que a própria pessoa lançou, enquanto o almoxarifado não respondeu
+    $('botaoExcluirFin').hidden = !(i.podeExcluir && i.origem === 'Contas a Pagar' && normalizar(i.solicitadoPor) === normalizar(nome()));
     $('modalProcesso').hidden = false;
     try {
       const r = await api('finDocs', { token: chave, id: i.id, linha: i.linha });
@@ -614,6 +621,31 @@
       desenharProcesso();
     } catch (e) {
       $('procConteudo').textContent = e.message;
+    }
+  }
+
+  async function excluirLancamentoFin() {
+    const i = processo && processo.lista;
+    if (!i) return;
+    const motivo = window.prompt('Excluir a nota Nº ' + i.id + '?\n\nEla sai do financeiro, da Conferência e do portal da fazenda (fica registrada na aba Excluídas da planilha).\n\nMotivo (ex.: relançada separada):', '');
+    if (motivo === null) return;
+    if (motivo.trim().length < 5) { $('procAviso').textContent = 'Escreva o motivo da exclusão (pelo menos 5 letras).'; return; }
+    const botao = $('botaoExcluirFin');
+    botao.disabled = true;
+    botao.textContent = 'Excluindo...';
+    try {
+      await api('finExcluir', { token: chave, id: i.id, linha: i.linha, nome: nome(), motivo: motivo.trim() });
+      itens = itens.filter(x => x !== i);
+      $('modalProcesso').hidden = true;
+      limparBlobs();
+      desenhar();
+      aviso('Nota Nº ' + i.id + ' excluída.', true);
+      carregar();
+    } catch (e) {
+      $('procAviso').textContent = 'Não consegui excluir: ' + e.message;
+    } finally {
+      botao.disabled = false;
+      botao.textContent = '🗑 Excluir lançamento';
     }
   }
 
@@ -880,6 +912,7 @@
   $('abaPendentes').onclick = () => { abaFin = 'pendentes'; desenhar(); };
   $('abaBaixadas').onclick = () => { abaFin = 'baixadas'; selecionadas.clear(); desenhar(); };
   $('botaoImprimir').onclick = imprimirProcesso;
+  $('botaoExcluirFin').onclick = excluirLancamentoFin;
   document.querySelectorAll('[data-fechar]').forEach(b => { b.onclick = () => { $(b.dataset.fechar).hidden = true; limparBlobs(); }; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('modalProcesso').hidden = true; $('modalAnexar').hidden = true; } });
 
