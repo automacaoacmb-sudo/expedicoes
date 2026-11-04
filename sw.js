@@ -1,12 +1,13 @@
 /* Modo offline do app de expedição.
  * - Páginas: tenta a internet primeiro (pega atualizações) e cai na cópia salva se estiver sem sinal.
- * - Ícones, manifesto e comum.js: usa a cópia salva.
+ * - comum.js: também internet primeiro (a página e o comum.js precisam ser da mesma versão).
+ * - Ícones e manifesto: usa a cópia salva.
  * - Servidor (Google Apps Script): sempre pela internet; quem guarda os lançamentos sem sinal é a fila do app. */
-const VERSAO = 'exped-1.3.0';
+const VERSAO = 'exped-1.3.1';
 const SHELL = ['./', './index.html', './comum.js', './almoxarifado.html', './financeiro.html', './manifest.webmanifest', './manifest-almox.webmanifest', './manifest-conferencia.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSAO).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSAO).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -28,6 +29,13 @@ self.addEventListener('fetch', e => {
       if (r.ok) { const copia = r.clone(); caches.open(VERSAO).then(c => c.put(chave, copia)); }
       return r;
     }).catch(() => caches.match(chave).then(r => r || caches.match('./index.html'))));
+    return;
+  }
+  if (/\.js$/.test(url.pathname)) {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(r => {
+      if (r.ok) { const copia = r.clone(); caches.open(VERSAO).then(c => c.put(url.pathname, copia)); }
+      return r;
+    }).catch(() => caches.match(req, { ignoreSearch: true })));
     return;
   }
   e.respondWith(caches.match(req, { ignoreSearch: true }).then(r => r || fetch(req)));
