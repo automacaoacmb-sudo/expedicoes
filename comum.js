@@ -133,6 +133,69 @@ const Comum = (() => {
     } catch (e) { return null; }
   }
 
+  // pdf-lib: só para separar um PDF com várias notas em um PDF por nota (baixado só quando precisa)
+  let pdfLibPromessa = null;
+  function carregarPdfLib() {
+    if (!pdfLibPromessa) {
+      pdfLibPromessa = new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+        s.onload = () => res(window.PDFLib);
+        s.onerror = () => { pdfLibPromessa = null; rej(new Error('Não consegui carregar o separador de PDF (precisa de internet).')); };
+        document.head.appendChild(s);
+      });
+    }
+    return pdfLibPromessa;
+  }
+
+  // chave de acesso da NF-e (44 dígitos, modelo 55) e o número da nota que vem dentro dela (posições 26 a 34)
+  function chaveDeAcesso(texto) {
+    for (const b of String(texto || '').match(/(?:\d{4}[\s.]?){10}\d{4}/g) || []) {
+      const chave = b.replace(/\D/g, '');
+      if (chave.length === 44 && chave.slice(20, 22) === '55') return chave;
+    }
+    return '';
+  }
+  function numeroDaNota(texto, chave) {
+    if (chave) return String(parseInt(chave.slice(25, 34), 10));
+    const m = String(texto || '').match(/N[º°o]\.?\s*:?\s*(\d{1,3}(?:\.\d{3}){1,3}|\d{3,9})/);
+    return m ? String(parseInt(m[1].replace(/\D/g, ''), 10)) : '';
+  }
+
+  /**
+   * Um PDF pode trazer várias notas (ex.: um arquivo "DANFE" com 5 notas). Separa pela chave de acesso:
+   * quando a chave muda de uma página para a outra, começa outra nota (página sem chave fica com a anterior).
+   * Devolve [{ dataUrl, numero, texto, paginas }]: um item por nota. Foto, PDF escaneado (sem texto) ou
+   * PDF de uma nota só = um item com o arquivo como veio (texto vazio se não houver).
+   */
+  async function separarNotasPdf(dataUrl) {
+    if (!/^data:application\/pdf/.test(dataUrl || '')) return [{ dataUrl: dataUrl, numero: '', texto: '', paginas: 1 }];
+    let grupos = [];
+    try {
+      const pdfjs = await carregarPdfJs();
+      const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
+      for (let p = 1; p <= doc.numPages; p++) {
+        const conteudo = await (await doc.getPage(p)).getTextContent();
+        const texto = conteudo.items.map(i => i.str).join(' ');
+        const chave = chaveDeAcesso(texto);
+        const atual = grupos[grupos.length - 1];
+        if (!atual || (chave && atual.chave && chave !== atual.chave)) grupos.push({ chave: chave, paginas: [p - 1], texto: texto });
+        else { atual.paginas.push(p - 1); atual.texto += ' ' + texto; if (!atual.chave) atual.chave = chave; }
+      }
+    } catch (e) { return [{ dataUrl: dataUrl, numero: '', texto: '', paginas: 1 }]; }
+    const item = (url, g) => ({ dataUrl: url, numero: numeroDaNota(g.texto, g.chave), texto: g.texto.slice(0, 40000), paginas: g.paginas.length });
+    if (grupos.length <= 1) return [item(dataUrl, grupos[0] || { chave: '', paginas: [0], texto: '' })];
+    const PDFLib = await carregarPdfLib();
+    const origem = await PDFLib.PDFDocument.load(bytesDe(dataUrl), { ignoreEncryption: true });
+    const saida = [];
+    for (const g of grupos) {
+      const novo = await PDFLib.PDFDocument.create();
+      (await novo.copyPages(origem, g.paginas)).forEach(pg => novo.addPage(pg));
+      saida.push(item('data:application/pdf;base64,' + await novo.saveAsBase64(), g));
+    }
+    return saida;
+  }
+
   async function pdfParaImagens(dataUrl) {
     const pdfjs = await carregarPdfJs();
     const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
@@ -240,5 +303,5 @@ const Comum = (() => {
     }`;
   document.head.appendChild(estilo);
 
-  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo };
+  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo, separarNotasPdf };
 })();
