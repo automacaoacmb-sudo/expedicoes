@@ -13,12 +13,10 @@
 <title>Almoxarifado - Recebimento de notas</title>
 <style>
   :root {
-    --cor-primaria: #2e7d4f; --cor-primaria-escura: #205c39; --cor-fundo: #f3f6f2; --cor-cartao: #ffffff;
-    --cor-texto: #1c2620; --cor-texto-suave: #6b7a70; --cor-borda: #dbe4dc; --cor-erro: #c0392b; --cor-erro-fundo: #fdecea;
-    --cor-ok-fundo: #e6f4ea; --cor-aviso: #8a5a00; --cor-aviso-fundo: #fff4d6; --cor-urgente: #b3261e; --cor-urgente-fundo: #ffe5e0;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --cor-fundo: #10140f; --cor-cartao: #1a2118; --cor-texto: #eef2ec; --cor-texto-suave: #9fb0a4; --cor-borda: #2c362a; --cor-erro-fundo: #3a1f1c; --cor-ok-fundo: #16281c; --cor-aviso: #f3c969; --cor-aviso-fundo: #3a2f12; --cor-urgente: #ff8a7a; --cor-urgente-fundo: #3d1d19; }
+    color-scheme: light;
+    --cor-primaria: #2f7d55; --cor-primaria-escura: #266846; --cor-fundo: #f6f8f6; --cor-cartao: #ffffff;
+    --cor-texto: #202b25; --cor-texto-suave: #738078; --cor-borda: #e2e8e3; --cor-realce: #edf5ef; --cor-erro: #c0392b; --cor-erro-fundo: #fdecea;
+    --cor-ok-fundo: #e6f4ea; --cor-aviso: #8a5a00; --cor-aviso-fundo: #fff4d6; --cor-urgente: #b8501c; --cor-urgente-fundo: #fdeee4;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -145,15 +143,56 @@
   .bloco-motivo { margin-top: 10px; }
   details.opcional summary { cursor: pointer; font-weight: 700; color: var(--cor-primaria); font-size: 14px; margin-bottom: 12px; }
   @media (max-width: 420px) { .acoes-topo { grid-template-columns: 1fr; } }
+
+  /* ===== Visual igual ao da Conferência (mantendo botões grandes para o celular) ===== */
+  body { font-family: Inter, "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif; }
+  header { background: var(--cor-cartao); color: var(--cor-texto); border-bottom: 1px solid var(--cor-borda); padding: calc(10px + env(safe-area-inset-top)) 18px 10px; min-height: 62px; }
+  header .marca-icone { width: 36px; height: 36px; border-radius: 10px; background: var(--cor-realce); display: grid; place-items: center; font-size: 18px; flex: none; }
+  header h1 { font-size: 17px; font-weight: 750; letter-spacing: -0.3px; }
+  header p { font-size: 11.5px; color: var(--cor-texto-suave); opacity: 1; margin-top: 2px; }
+  header button { background: var(--cor-primaria); color: #fff; border: 1px solid var(--cor-primaria); border-radius: 8px; padding: 8px 12px; font-weight: 650; }
+  header button:hover { background: var(--cor-primaria-escura); }
+  main { padding-top: 16px; }
+  .cartao { border: 1px solid var(--cor-borda); border-radius: 12px; box-shadow: 0 8px 28px rgba(23, 37, 27, 0.06); }
+
+  /* abas à esquerda; busca e imprimir encostados à direita */
+  .linha-lista { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .linha-lista .abas { margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+  .linha-lista .barra { margin: 0 0 0 auto; flex: 0 1 340px; min-width: 220px; }
+  .abas { gap: 4px; }
+  .abas button { border: 0; background: transparent; border-radius: 8px; padding: 8px 13px; font-size: 13.5px; color: var(--cor-texto-suave); }
+  .abas button.ativa { background: var(--cor-realce); color: var(--cor-primaria); border: 0; }
+  .barra input[type=search] { font-size: 14px; padding: 8px 12px; height: 38px; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 8px; }
+  .barra .botao-sec { height: 38px; padding: 0 12px; border-radius: 8px; }
+
+  #lista.cartao { padding: 0; overflow: hidden; overflow-x: auto; }
+  .tabela-notas { font-size: 13px; }
+  .tabela-notas th { background: #f7f9f7; font-size: 11.5px; text-transform: none; letter-spacing: 0; font-weight: 700; padding: 10px; border-bottom: 1px solid var(--cor-borda); }
+  .tabela-notas th:first-child, .tabela-notas td:first-child { padding-left: 15px; }
+  .tabela-notas tbody tr:nth-child(even) td { background: #f7f9f7; } /* zebrado */
+  .tabela-notas tbody tr:hover td { background: #eef5f0; }
+  .tabela-notas tr.urgente td:first-child { box-shadow: inset 4px 0 0 #eeb05a; }
+  .chip { padding: 4px 10px; font-size: 11.5px; }
+  .chip.pendente { background: #edf3fb; color: #4b6e9d; }
+  .chip.recebido { background: #eaf4ed; color: #34734b; }
+  .chip.nao { background: #fde8e5; color: #b4453a; }
+  .faixa-urgente { border: 1px solid #f4d3bd; }
+  .abas-docs button.ativa { background: var(--cor-realce); }
+  @media (max-width: 720px) {
+    .linha-lista .barra { flex: 1 1 100%; margin-left: 0; }
+    .tabela-notas tr { padding: 10px 8px; }
+    .tabela-notas tbody tr:nth-child(even) { background: #f7f9f7; }
+  }
 </style>
 </head>
 <body>
 <header>
+  <div class="marca-icone">📦</div>
   <div class="titulos">
-    <h1>📦 Recebimento de notas</h1>
+    <h1>Recebimento de notas</h1>
     <p id="subtitulo">Almoxarifado</p>
   </div>
-  <button id="botaoAtualizar" hidden title="Buscar as notas de novo">↻</button>
+  <button id="botaoAtualizar" hidden title="Buscar as notas de novo">↻ Atualizar</button>
 </header>
 
 <main>
@@ -180,10 +219,12 @@
       <button class="botao" id="botaoNovaNota">＋ Novo recebimento</button>
       <button class="botao-sec" id="botaoSolicitar">❓ Chegou sem nota</button>
     </div>
-    <div class="abas" id="abas"></div>
-    <div class="barra">
-      <input type="search" id="busca" placeholder="Buscar NF, fornecedor, motorista...">
-      <button class="botao-sec" id="botaoImprimirTodas" title="Imprimir as notas desta aba">🖨</button>
+    <div class="linha-lista">
+      <div class="abas" id="abas"></div>
+      <div class="barra">
+        <input type="search" id="busca" placeholder="⌕ Buscar NF, fornecedor, motorista...">
+        <button class="botao-sec" id="botaoImprimirTodas" title="Imprimir as notas desta aba">🖨</button>
+      </div>
     </div>
     <div class="cartao" id="lista"></div>
     <p class="dica">Clique numa nota para ver o documento e responder. Clique no título de uma coluna para ordenar. Você está como <b id="nomeAtual"></b> · <button class="link" id="trocarNome">trocar</button></p>
