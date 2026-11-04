@@ -380,6 +380,9 @@
   .rotulo-secao { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--cor-texto-suave); font-weight: 750; }
   .rodape-painel { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px; background: var(--cor-cartao); border-top: 1px solid var(--cor-borda); }
   .rodape-painel .botoes { display: flex; gap: 8px; }
+  .botao-excluir { border: 1px solid #f0c9c3; background: transparent; color: #b4453a; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+  .botao-excluir:hover { background: #fdeceb; }
+  .botao-excluir:disabled { opacity: 0.6; }
   @media (max-width: 1000px) { #modalNota .modal { width: 100vw; } #modalNota .modal-corpo { grid-template-columns: 1fr; overflow: auto; } }
   .modal-corpo { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 14px 16px; overflow: auto; }
   .modal-corpo.coluna { flex-direction: column; gap: 10px; }
@@ -580,6 +583,7 @@
       </section>
     </div>
     <div class="rodape-painel">
+      <button type="button" class="botao-excluir" id="botaoExcluirNota" hidden title="Só nota lançada à mão (financeiro ou conferente), enquanto o almoxarifado não respondeu">🗑 Excluir lançamento</button>
       <div class="aviso-modal" id="notaAviso"></div>
       <div class="botoes">
         <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
@@ -1756,6 +1760,7 @@
     abaDoc = item.numFotos || !item.numPedido ? 'nota' : 'pedido';
     $('notaTitulo').textContent = 'Conferência da nota Nº ' + item.id;
     atualizarBotaoImprimirNota();
+    $('botaoExcluirNota').hidden = !item.podeExcluir;
     $('notaSubtitulo').textContent = [item.fazenda || 'Sem fazenda', item.data, item.notaFiscal ? (item.comNf === 'Não' ? 'OS ' : 'NF ') + item.notaFiscal : '', item.fornecedor].filter(Boolean).join(' · ');
     montarDadosNota();
     mostrarAvisoNota('', true);
@@ -2118,6 +2123,31 @@
     notaItem = null;
   }
 
+  // Nota lançada à mão e ainda sem resposta do almoxarifado: sai da base (vai para a aba Excluídas da planilha).
+  function excluirNota() {
+    const item = notaItem;
+    if (!item || !item.podeExcluir) return;
+    const motivo = window.prompt('Excluir a nota Nº ' + item.id + '?\n\nEla sai da Conferência, do financeiro e do portal da fazenda (fica registrada na aba Excluídas da planilha).\n\nMotivo (ex.: relançada separada):', '');
+    if (motivo === null) return;
+    if (motivo.trim().length < 5) { mostrarAvisoNota('Escreva o motivo da exclusão (pelo menos 5 letras).', false); return; }
+    const botao = $('botaoExcluirNota');
+    botao.disabled = true;
+    botao.textContent = 'Excluindo...';
+    google.script.run
+      .withSuccessHandler(function(r) {
+        botao.disabled = false;
+        botao.textContent = '🗑 Excluir lançamento';
+        if (!r.ok) { mostrarAvisoNota(r.mensagem, false); return; }
+        dados.pendentes = dados.pendentes.filter(function(i) { return i !== item; });
+        fecharNota(true);
+        desenhar();
+        mostrarAviso('Nota Nº ' + item.id + ' excluída.', true);
+        carregar();
+      })
+      .withFailureHandler(function(erro) { botao.disabled = false; botao.textContent = '🗑 Excluir lançamento'; mostrarAvisoNota('Erro: ' + erro.message, false); })
+      .excluirLancamento(item.id, item.linha, motivo.trim(), 'Conferente');
+  }
+
   function salvarCorrecao() {
     const campos = {};
     CAMPOS_MODAL.forEach(function(c) {
@@ -2396,6 +2426,7 @@
   $('botaoAnexarPedido').onclick = function() { anexar('pedido'); };
   $('inputAnexo').onchange = function() { enviarAnexos($('inputAnexo').files); };
   $('botaoSalvarCorrecao').onclick = salvarCorrecao;
+  $('botaoExcluirNota').onclick = excluirNota;
 
   document.querySelectorAll('[data-fechar]').forEach(function(b) {
     b.onclick = function() { if (b.dataset.fechar === 'modalNota') fecharNota(false); else $(b.dataset.fechar).hidden = true; };
