@@ -157,12 +157,16 @@
   .cartao-num.perigo .bolha { background: #d98b82; }
   .cartao-num.azul .bolha { background: #b5bfb8; }
   .cartao-num .numero { font-size: 13px; font-weight: 750; color: var(--cor-texto); }
+  .cartao-num.urgente { color: #b8501c; border-color: #f4d3bd; }
+  .cartao-num.urgente.ativo { background: #fdeee4; border-color: #e8a57d; }
+  .cartao-num.duplicada { color: #a2620f; border-color: #eedab4; }
+  .cartao-num.duplicada.ativo { background: #fff4e0; border-color: #ddb26a; }
   .cartao-num .rotulo { font-weight: 600; }
 
   /* Painel da lista: abas, busca, atalhos, legenda e tabela num cartão só */
   .painel { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--cor-cartao); border: 1px solid var(--cor-borda); border-radius: 12px; box-shadow: var(--sombra); overflow: hidden; }
   .barra-ferramentas { flex: none; padding: 9px 15px 9px; border-bottom: 1px solid var(--cor-borda); }
-  .barra-ferramentas .linha-cima { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px dashed var(--cor-borda); }
+  .barra-ferramentas .linha-cima { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; justify-content: space-between; }
   .barra-ferramentas .linha-baixo { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; margin-top: 8px; }
   .atalhos-rotulo { color: var(--cor-texto-suave); font-size: 11px; }
 
@@ -186,12 +190,14 @@
     display: inline-block; min-width: 20px; margin-left: 5px; padding: 1px 6px; border-radius: 999px;
     background: rgba(128,128,128,0.16); font-size: 10.5px; text-align: center;
   }
-  .barra-ferramentas input[type=search] {
-    width: 190px; height: 28px; font-size: 12px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--cor-borda);
-    background: var(--cor-zebra); color: var(--cor-texto); font-family: inherit; outline: none; flex: none;
+  .linha-resumo { flex: none; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .linha-resumo .cartoes { margin-bottom: 0; }
+  #busca {
+    margin-left: auto; width: 220px; height: 30px; font-size: 12px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--cor-borda);
+    background: var(--cor-cartao); color: var(--cor-texto); font-family: inherit; outline: none; flex: none; transition: width 0.15s;
   }
-  .barra-ferramentas input[type=search]:focus { width: 260px; border-color: #9fbfab; background: var(--cor-cartao); }
-  #infoLista { margin-left: auto; font-size: 11px; color: var(--cor-texto-suave); white-space: nowrap; }
+  #busca:focus { width: 300px; border-color: #9fbfab; box-shadow: 0 0 0 2px rgba(47, 125, 85, 0.10); }
+  #infoLista { align-self: center; margin-left: 8px; font-size: 11px; color: var(--cor-texto-suave); white-space: nowrap; }
   /* Legenda compacta, no alto à direita */
   .legenda { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; font-size: 10.5px; color: var(--cor-texto-suave); }
   .legenda .titulo-grupo { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; color: #9aa59e; }
@@ -200,9 +206,9 @@
   .legenda .bolinha { width: 7px; height: 7px; }
   .marca-acao { display: inline-block; font-size: 10px; font-weight: 700; color: #8a5a14; background: #fff5e5; border: 1px solid #f0dfbf; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
   .bolinha { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-  .bolinha.verde { background: #8fc79c; }
-  .bolinha.laranja { background: #f2bd6e; }
-  .bolinha.vermelha { background: #eb998f; }
+  .bolinha.verde { background: #7dbd8c; }
+  .bolinha.laranja { background: #eeb05a; }
+  .bolinha.vermelha { background: #e5877c; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   /* os atalhos correm na mesma linha da busca (sem caixas em volta) */
@@ -250,14 +256,15 @@
     vertical-align: middle; overflow-wrap: anywhere;
   }
   tbody tr { cursor: pointer; }
-  tbody tr:hover td { background: #f8fbf9; }
+  tbody tr:nth-child(even) td { background: #f7f9f7; } /* zebrado: separa uma linha da outra */
+  tbody tr:hover td { background: #eef5f0; }
   tbody tr.selecionada td { background: var(--cor-azul-fundo) !important; }
   td.id-nota { font-weight: 750; color: var(--cor-texto-suave); }
 
   /* Tempo em aberto (só Pendências): linha limpa, só uma faixa fina à esquerda e o texto do tempo na cor */
-  tbody tr.linha-verde td:first-child { border-left: 3px solid #8fc79c; }
-  tbody tr.linha-laranja td:first-child { border-left: 3px solid #f2bd6e; }
-  tbody tr.linha-vermelha td:first-child { border-left: 3px solid #eb998f; }
+  tbody tr.linha-verde td:first-child { border-left: 4px solid #7dbd8c; }
+  tbody tr.linha-laranja td:first-child { border-left: 4px solid #eeb05a; }
+  tbody tr.linha-vermelha td:first-child { border-left: 4px solid #e5877c; }
   .tempo { display: block; font-size: 10px; font-weight: 600; margin-top: 3px; white-space: nowrap; }
   .linha-verde .tempo { color: #5b9a69; }
   .linha-laranja .tempo { color: #b98232; }
@@ -464,7 +471,11 @@
 <main>
   <div id="aviso" hidden></div>
 
-  <section class="cartoes" id="cartoes" aria-label="Resumo"></section>
+  <!-- resumo (clicar filtra) à esquerda e a busca geral encostada na margem direita -->
+  <div class="linha-resumo">
+    <section class="cartoes" id="cartoes" aria-label="Resumo"></section>
+    <input type="search" id="busca" placeholder="⌕ Buscar em tudo...">
+  </div>
 
   <section class="painel">
     <div class="barra-ferramentas">
@@ -473,6 +484,7 @@
         <div class="abas">
           <button id="abaPendentes" class="ativa">Pendências<span class="contagem" id="contagemPendentes">0</span></button>
           <button id="abaResolvidas">Baixadas<span class="contagem" id="contagemResolvidas">0</span></button>
+          <span id="infoLista"></span>
         </div>
         <div class="legenda" id="legendaPrioridade">
           <span class="titulo-grupo">Tempo em aberto</span>
@@ -485,13 +497,8 @@
           <span class="item">🤖 lido da foto</span>
         </div>
       </div>
-      <!-- junto da tabela: busca discreta à esquerda e os atalhos logo depois -->
-      <div class="linha-baixo">
-        <input type="search" id="busca" placeholder="⌕ Buscar em tudo...">
-        <div class="chips" id="chipsEtapa"></div>
-        <div class="chips" id="chipsOrigem"></div>
-        <span id="infoLista"></span>
-      </div>
+      <!-- atalhos de etapa/origem saíram da tela (Urgentes e Duplicadas foram para o resumo; etapa e origem filtram pela coluna Etapa) -->
+      <div hidden><div id="chipsEtapa"></div><div id="chipsOrigem"></div></div>
     </div>
 
     <div id="carregando">Carregando...</div>
@@ -886,7 +893,13 @@
         acao: function() { abaAtual = 'pendentes'; filtroEtapa = filtroEtapa === 'Divergência' ? '' : 'Divergência'; } },
       { rotulo: 'Baixadas hoje', numero: baixadasHoje, dica: 'Conferências concluídas', bolha: '✓', classe: 'azul',
         ativo: abaAtual === 'resolvidas',
-        acao: function() { abaAtual = abaAtual === 'resolvidas' ? 'pendentes' : 'resolvidas'; } }
+        acao: function() { abaAtual = abaAtual === 'resolvidas' ? 'pendentes' : 'resolvidas'; } },
+      { rotulo: '⚑ Urgentes', numero: dados.pendentes.filter(function(i) { return i.urgencia; }).length, dica: 'O financeiro pediu prioridade', classe: 'urgente',
+        ativo: abaAtual === 'pendentes' && filtroUrgentes,
+        acao: function() { abaAtual = 'pendentes'; filtroUrgentes = !filtroUrgentes; } },
+      { rotulo: '⚠ Possíveis duplicadas', numero: dados.pendentes.filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length, dica: 'Mesmo número e mesmo fornecedor ou valor: abra a nota e use "Juntar"', classe: 'duplicada',
+        ativo: abaAtual === 'pendentes' && filtroDuplicadas,
+        acao: function() { abaAtual = 'pendentes'; filtroDuplicadas = !filtroDuplicadas; } }
     ];
     const area = $('cartoes');
     area.innerHTML = '';
@@ -894,7 +907,7 @@
       const b = criar('button', 'cartao-num ' + c.classe + (c.ativo ? ' ativo' : ''));
       b.type = 'button';
       b.title = c.dica + ' (clique para filtrar)';
-      b.appendChild(criar('span', 'bolha'));
+      if (c.classe !== 'urgente' && c.classe !== 'duplicada') b.appendChild(criar('span', 'bolha'));
       b.appendChild(criar('span', 'rotulo', c.rotulo));
       b.appendChild(criar('span', 'numero', String(c.numero)));
       b.onclick = function() { c.acao(); desenhar(); };
