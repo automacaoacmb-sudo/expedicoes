@@ -109,6 +109,30 @@ const Comum = (() => {
     return pdfjsPromessa;
   }
 
+  /**
+   * Número da NF lido do próprio PDF (DANFE com texto): pela chave de acesso de 44 dígitos (o número
+   * da nota fica nas posições 26 a 34) ou, sem chave, pelo "Nº 000.000.000" impresso. Foto ou PDF
+   * escaneado (sem texto) devolve null. Lê só as 2 primeiras páginas.
+   */
+  async function lerNfDoArquivo(dataUrl) {
+    if (!/^data:application\/pdf/.test(dataUrl || '')) return null;
+    try {
+      const pdfjs = await carregarPdfJs();
+      const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
+      let texto = '';
+      for (let p = 1; p <= Math.min(2, doc.numPages); p++) {
+        const conteudo = await (await doc.getPage(p)).getTextContent();
+        texto += ' ' + conteudo.items.map(i => i.str).join(' ');
+      }
+      for (const b of texto.match(/(?:\d{4}[\s.]?){10}\d{4}/g) || []) {
+        const chave = b.replace(/\D/g, '');
+        if (chave.length === 44 && chave.slice(20, 22) === '55') return { numero: String(parseInt(chave.slice(25, 34), 10)), chave: chave };
+      }
+      const m = texto.match(/N[º°o]\.?\s*:?\s*(\d{1,3}(?:\.\d{3}){1,3}|\d{3,9})/);
+      return m ? { numero: String(parseInt(m[1].replace(/\D/g, ''), 10)), chave: '' } : null;
+    } catch (e) { return null; }
+  }
+
   async function pdfParaImagens(dataUrl) {
     const pdfjs = await carregarPdfJs();
     const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
@@ -211,5 +235,5 @@ const Comum = (() => {
     }`;
   document.head.appendChild(estilo);
 
-  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo };
+  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo };
 })();
