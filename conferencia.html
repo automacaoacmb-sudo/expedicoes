@@ -1910,8 +1910,13 @@
     if (caixa.hidden) return;
     baixadas.forEach(function(id) {
       const o = achar(dados.resolvidas, id);
+      const almoxO = o && o.almox && o.almox.situacao ? ' O almoxarifado já confirmou essa nota (' + o.almox.situacao + (o.almox.dataRecebimento ? ' em ' + o.almox.dataRecebimento : '') + (o.almox.por ? ' por ' + o.almox.por : '') + '): o carimbo vem junto.' : '';
       caixa.appendChild(criar('div', '', 'Pode ser a mesma nota que a #' + id + (o ? ' · ' + o.data + ' · NF/OS ' + (o.notaFiscal || '—') + ' · ' + (o.fornecedor || '—') + (o.valor !== null ? ' · ' + formatarValor(o.valor) : '') : '') + ', que já foi BAIXADA.' +
-        (item.podeExcluir ? ' Se for a mesma, exclua esta (botão "Excluir lançamento" abaixo).' : ' Se for a mesma, dê baixa nesta com a observação "duplicada da #' + id + '".')));
+        ' Se for a mesma, junte a #' + id + ' nesta (esta fica, com os documentos e os dados da #' + id + ').' + almoxO));
+      const bj = criar('button', 'botao-sec', 'Juntar #' + id + ' nesta nota');
+      bj.type = 'button';
+      bj.onclick = function() { juntar(item, o || { id: id, linha: 0, baixadaAntiga: true }, bj); };
+      caixa.appendChild(bj);
       if (o) {
         const b = criar('button', 'botao-sec', 'Abrir #' + id + ' para comparar');
         b.type = 'button';
@@ -1965,7 +1970,9 @@
   }
 
   function juntar(manter, remover, botao) {
-    if (!confirm('Juntar a nota #' + remover.id + ' nesta (#' + manter.id + ')?\n\nOs documentos e os dados que faltam aqui vêm da #' + remover.id + ', e a #' + remover.id + ' sai da lista.')) return;
+    const avisoBaixa = remover.conferido || remover.baixadaAntiga ? '\n\nA #' + remover.id + ' já está BAIXADA: ela sai das Baixadas e fica registrada na aba Excluídas da planilha. Esta (#' + manter.id + ') continua pendente.' : '';
+    const avisoAlmox = remover.almox && remover.almox.situacao ? '\n\nATENÇÃO: o almoxarifado já confirmou a #' + remover.id + ' (' + remover.almox.situacao + (remover.almox.dataRecebimento ? ' em ' + remover.almox.dataRecebimento : '') + '). Essa confirmação passa para esta nota.' : '';
+    if (!confirm('Juntar a nota #' + remover.id + ' nesta (#' + manter.id + ')?\n\nOs documentos e os dados que faltam aqui vêm da #' + remover.id + ', e a #' + remover.id + ' sai da lista.' + avisoBaixa + avisoAlmox)) return;
     botao.disabled = true;
     mostrarAvisoNota('Juntando...', true);
     salvamentosPendentes++;
@@ -1976,7 +1983,7 @@
         // a linha apagada some e as de baixo sobem uma posição na planilha
         ['pendentes', 'resolvidas'].forEach(function(lista) {
           dados[lista] = dados[lista].filter(function(i) { return i !== remover; });
-          dados[lista].forEach(function(i) { if (i.linha > remover.linha) i.linha--; });
+          if (!remover.baixadaAntiga) dados[lista].forEach(function(i) { if (i.linha > remover.linha) i.linha--; });
         });
         dados.pendentes.forEach(function(i) {
           i.duplicadaDe = i.duplicadaDe.filter(function(id) { return String(id) !== String(remover.id); });
@@ -1986,7 +1993,10 @@
         const novo = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0];
         desenhar();
         if (novo) { notaItem = novo; montarDadosNota(); carregarDocs(novo); }
-        mostrarAvisoNota('Notas juntadas ✓ (#' + remover.id + ' entrou nesta).', true);
+        const rm = r.removido || {};
+        mostrarAvisoNota('Notas juntadas ✓ (#' + remover.id + ' entrou nesta).' + (rm.almox ? ' ATENÇÃO: a #' + remover.id + ' já tinha confirmação do almoxarifado (' + rm.almox + '); o carimbo passou para esta nota.' : ''), true);
+        if (rm.almox) alert('A nota #' + remover.id + ' já tinha confirmação do almoxarifado:\n\n' + rm.almox + '\n\nO carimbo passou para esta nota (#' + manter.id + ').');
+        if (remover.baixadaAntiga) carregar(); // a linha da antiga não estava na tela: recarrega a lista
       })
       .withFailureHandler(function(erro) { salvamentosPendentes--; botao.disabled = false; mostrarAvisoNota('Erro: ' + erro.message, false); })
       .juntarNotas({ id: manter.id, linha: manter.linha }, { id: remover.id, linha: remover.linha });
