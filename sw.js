@@ -3,7 +3,7 @@
  * - comum.js: também internet primeiro (a página e o comum.js precisam ser da mesma versão).
  * - Ícones e manifesto: usa a cópia salva.
  * - Servidor (Google Apps Script): sempre pela internet; quem guarda os lançamentos sem sinal é a fila do app. */
-const VERSAO = 'exped-1.4.1';
+const VERSAO = 'exped-1.4.2';
 const SHELL = ['./', './index.html', './comum.js', './almoxarifado.html', './financeiro.html', './manifest.webmanifest', './manifest-almox.webmanifest', './manifest-conferencia.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
