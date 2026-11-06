@@ -155,6 +155,7 @@
   .cartao-num.aviso .bolha { background: #7fa3c9; }
   .cartao-num.perigo .bolha { background: #d98b82; }
   .cartao-num.azul .bolha { background: #b5bfb8; }
+  .cartao-num.faltam .bolha { background: #e0a25a; }
   .cartao-num .numero { font-size: 13px; font-weight: 750; color: var(--cor-texto); }
   .cartao-num.urgente { color: #b8501c; border-color: #f4d3bd; }
   .cartao-num.urgente.ativo { background: #fdeee4; border-color: #e8a57d; }
@@ -379,6 +380,19 @@
   .rotulo-secao { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--cor-texto-suave); font-weight: 750; }
   .rodape-painel { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px; background: var(--cor-cartao); border-top: 1px solid var(--cor-borda); }
   .rodape-painel .botoes { display: flex; gap: 8px; }
+  .lista-envio { max-height: 280px; overflow: auto; border: 1px solid var(--cor-borda); border-radius: 8px; padding: 6px; }
+  .lista-envio table { width: 100%; font-size: 12px; }
+  .lista-envio th { position: static; padding: 4px 6px; font-size: 11px; }
+  .lista-envio td { padding: 4px 6px; border-bottom: 1px solid var(--cor-borda); }
+  .lista-envio td.ok { color: #2f7d55; font-weight: 700; }
+  .lista-envio td.pula { color: #a2620f; }
+  .lista-envio td.erro { color: var(--cor-erro); font-weight: 700; }
+  .lista-envio .botao-limpar { margin-top: 6px; }
+  .nav-nota { display: flex; align-items: center; gap: 6px; }
+  .nav-nota .botao-sec { padding: 5px 10px; font-size: 12px; }
+  .nav-nota .botao-sec:disabled { opacity: 0.4; cursor: default; }
+  #notaPosicao { font-size: 11.5px; color: var(--cor-texto-suave); min-width: 54px; text-align: center; }
+  #notaDivergencia .botoes-div { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   .botao-excluir { border: 1px solid #f0c9c3; background: transparent; color: #b4453a; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
   .botao-excluir:hover { background: #fdeceb; }
   .botao-excluir:disabled { opacity: 0.6; }
@@ -482,7 +496,6 @@
     <button class="botao-topo" id="botaoLerFotos">📷 Ler fotos</button>
     <button class="botao-topo" id="botaoNovaNota" title="Registrar uma nota que chegou em papel ou PDF (contas a pagar, almoxarifado...) e não foi lançada pelo app">＋ Nova nota</button>
     <button class="botao-topo" id="botaoLinksAlmox" title="Link fixo do portal do almoxarifado de cada fazenda, para mandar pelo WhatsApp">📦 Links do almoxarifado</button>
-    <button class="botao-topo" id="botaoConsolidado">📧 Enviar consolidado</button>
     <button class="botao-topo destaque" id="botaoAtualizar">↻ Atualizar</button>
   </div>
 </div>
@@ -520,6 +533,12 @@
       <div hidden><div id="chipsEtapa"></div><div id="chipsOrigem"></div></div>
     </div>
 
+    <div class="barra-selecao" id="barraSelecao" hidden>
+      <span id="contaSelecao"></span>
+      <button type="button" class="botao-topo" id="botaoImprimirSel">🖨 Imprimir selecionadas</button>
+      <button type="button" class="botao-topo destaque" id="botaoBaixarSel">✓ Baixar</button>
+      <button type="button" class="botao-limpar" id="botaoLimparSel">limpar seleção</button>
+    </div>
     <div id="carregando">Carregando...</div>
     <div class="tabela-wrap" id="tabelaWrap" hidden>
       <table>
@@ -538,7 +557,12 @@
         <div class="marca-icone">▣</div>
         <div><h2 id="notaTitulo"></h2><p class="sub-titulo" id="notaSubtitulo"></p></div>
       </div>
-      <button type="button" class="botao-fechar" data-fechar="modalNota" aria-label="Fechar">✕</button>
+      <div class="nav-nota">
+        <button type="button" class="botao-sec" id="notaAnterior" title="Nota anterior da lista (seta ←)">◀ Anterior</button>
+        <span id="notaPosicao"></span>
+        <button type="button" class="botao-sec" id="notaProxima" title="Próxima nota da lista (seta →)">Próxima ▶</button>
+        <button type="button" class="botao-fechar" data-fechar="modalNota" aria-label="Fechar">✕</button>
+      </div>
     </div>
     <div class="modal-corpo">
       <section class="modal-docs">
@@ -573,6 +597,7 @@
           <div><span class="chip-etapa" id="notaEtapa"></span><div style="margin-top:6px"><strong>Dados da conferência</strong></div></div>
         </div>
         <div class="resumo" id="notaResumo"></div>
+        <div class="bloco-info alerta" id="notaDivergencia" hidden></div>
         <div class="bloco-info alerta" id="notaJuntar" hidden></div>
         <div class="rotulo-secao">Dados da nota</div>
         <div class="grade-campos" id="notaCampos"></div>
@@ -587,6 +612,7 @@
       <div class="botoes">
         <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
         <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
+        <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden>✓ Baixar e próxima</button>
       </div>
     </div>
   </div>
@@ -612,6 +638,10 @@
         <div class="campo-modal largo"><label for="novaObs">Observação</label><textarea id="novaObs" rows="2"></textarea></div>
       </div>
       <div class="aviso-repetida" id="novaRepetida" hidden></div>
+      <div class="lista-envio" id="novaLista" hidden>
+        <table><thead><tr><th></th><th>Arquivo / nota</th><th>NF</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="novaListaCorpo"></tbody></table>
+        <button type="button" class="botao-limpar" id="novaCopiar">Copiar lista</button>
+      </div>
       <div class="aviso-modal" id="novaAviso"></div>
       <div class="modal-botoes">
         <button type="button" class="botao-principal" id="botaoCriarNota">Registrar nota</button>
@@ -642,6 +672,7 @@
 
 <script>
   const COLUNAS = [
+    { chave: '_sel', titulo: '', alinhar: 'centro' },
     { chave: 'id', titulo: 'Nº', tipo: 'numero', alinhar: 'centro' },
     { chave: 'fazenda', titulo: 'Fazenda' },
     { chave: 'dataTs', titulo: 'Data', tipo: 'numero', alinhar: 'centro' },
@@ -906,26 +937,18 @@
   function desenharCartoes() {
     const hoje = (function() { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); })();
     const contar = function(etapa) { return dados.pendentes.filter(function(i) { return i.etapa === etapa; }).length; };
-    const baixadasHoje = dados.resolvidas.filter(function(i) { return String(i.dataConferencia || '').indexOf(hoje) === 0; }).length;
+    const porEtapa = function(nome) { return { ativo: abaAtual === 'pendentes' && filtroEtapa === nome, liga: function() { filtroEtapa = nome; } }; };
     const cartoes = [
-      { rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', bolha: '◷', classe: '',
-        ativo: abaAtual === 'pendentes' && !filtroEtapa && !filtroUrgentes && !filtroDuplicadas,
-        liga: function() {} },
-      { rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'Confirmação de recebimento', bolha: '📦', classe: 'aviso',
-        ativo: abaAtual === 'pendentes' && filtroEtapa === 'Aguardando almoxarifado',
-        liga: function() { filtroEtapa = 'Aguardando almoxarifado'; } },
-      { rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Precisam de análise', bolha: '!', classe: 'perigo',
-        ativo: abaAtual === 'pendentes' && filtroEtapa === 'Divergência',
-        liga: function() { filtroEtapa = 'Divergência'; } },
-      { rotulo: 'Baixadas hoje', numero: baixadasHoje, dica: 'Conferências concluídas', bolha: '✓', classe: 'azul',
-        ativo: abaAtual === 'resolvidas',
-        liga: function() { abaAtual = 'resolvidas'; } },
+      Object.assign({ rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', classe: '',
+        ativo: abaAtual === 'pendentes' && !filtroEtapa && !filtroUrgentes && !filtroDuplicadas, liga: function() {} }),
+      Object.assign({ rotulo: 'Faltam dados', numero: contar('Faltam dados'), dica: 'Sem fazenda, fornecedor, NF ou valor: complete na nota', classe: 'faltam' }, porEtapa('Faltam dados')),
+      Object.assign({ rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'A fazenda ainda vai confirmar o recebimento', classe: 'aviso' }, porEtapa('Aguardando almoxarifado')),
+      Object.assign({ rotulo: 'Confirmadas', numero: contar('Confirmada pelo almoxarifado'), dica: 'Prontas para imprimir e dar baixa', classe: '' }, porEtapa('Confirmada pelo almoxarifado')),
+      Object.assign({ rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Abra a nota e decida (aceitar ou devolver)', classe: 'perigo' }, porEtapa('Divergência')),
       { rotulo: '⚑ Urgentes', numero: dados.pendentes.filter(function(i) { return i.urgencia; }).length, dica: 'O financeiro pediu prioridade', classe: 'urgente',
-        ativo: abaAtual === 'pendentes' && filtroUrgentes,
-        liga: function() { filtroUrgentes = true; } },
+        ativo: abaAtual === 'pendentes' && filtroUrgentes, liga: function() { filtroUrgentes = true; } },
       { rotulo: '⚠ Possíveis duplicadas', numero: dados.pendentes.filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length, dica: 'Mesmo número e mesmo fornecedor ou valor: abra a nota e use "Juntar"', classe: 'duplicada',
-        ativo: abaAtual === 'pendentes' && filtroDuplicadas,
-        liga: function() { filtroDuplicadas = true; } }
+        ativo: abaAtual === 'pendentes' && filtroDuplicadas, liga: function() { filtroDuplicadas = true; } }
     ];
     const area = $('cartoes');
     area.innerHTML = '';
@@ -1404,9 +1427,9 @@
       const img = document.createElement('img');
       caixa.appendChild(img);
       // a identificação vai só na 1ª folha, pequena, ao lado do carimbo (não rouba espaço da nota)
-      if (p.carimbo || k === 0) {
+      if (p.carimbo || k === 0 || p.legenda) {
         const rodape = criar('div', 'rodape-imp');
-        rodape.appendChild(criar('div', 'legenda', k === 0 ? legenda : ''));
+        rodape.appendChild(criar('div', 'legenda', p.legenda !== undefined ? p.legenda : (k === 0 ? legenda : '')));
         if (p.carimbo) {
           caixa.classList.add('com-carimbo');
           const c = criar('div', 'carimbo');
@@ -1523,9 +1546,9 @@
       .salvarObservacaoConferencia(item.id, novo, item.linha);
   }
 
-  function alternarConferido(item, botao, area) {
+  function alternarConferido(item, botao, area, semPerguntar) {
     const marcar = !item.conferido;
-    if (marcar && !item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa (imprima em "Ver documento").\n\nDar baixa mesmo assim?')) return;
+    if (marcar && !item.impressoConf && !semPerguntar && !confirm('A nota #' + item.id + ' ainda não foi impressa (imprima em "Ver documento").\n\nDar baixa mesmo assim?')) return;
     const texto = area ? area.value : item.obsConferencia;
     // a tela muda na hora; o servidor grava em segundo plano (se falhar, a nota volta e aparece o aviso)
     const antes = { conferido: item.conferido, dataConferencia: item.dataConferencia, confTs: item.confTs, etapa: item.etapa, obsConferencia: item.obsConferencia };
@@ -1581,7 +1604,62 @@
   }
 
   /* ===================== Links fixos do portal do almoxarifado ===================== */
-  function atualizarBarraSelecao() { /* a seleção de notas para envio saiu: o almoxarifado vê tudo pelo portal */ }
+  function atualizarBarraSelecao() {
+    const barra = $('barraSelecao');
+    if (!barra) return;
+    const itens = Array.from(selecionados.values());
+    barra.hidden = !itens.length;
+    if (!itens.length) return;
+    const pend = itens.filter(function(i) { return !i.conferido; });
+    $('contaSelecao').textContent = itens.length + ' selecionada(s)';
+    $('botaoBaixarSel').hidden = !pend.length;
+    $('botaoBaixarSel').textContent = '✓ Baixar ' + pend.length;
+  }
+
+  // imprime várias notas numa impressão só (cada uma com o seu carimbo na 1ª folha) e marca cada uma como impressa
+  async function imprimirSelecionadas() {
+    const itens = Array.from(selecionados.values()).filter(function(i) { return i.numFotos || i.numPedido; });
+    if (!itens.length) { mostrarAviso('Nenhuma das notas marcadas tem documento para imprimir.', false); return; }
+    const botao = $('botaoImprimirSel');
+    botao.disabled = true;
+    const paginas = [];
+    try {
+      for (let k = 0; k < itens.length; k++) {
+        botao.textContent = 'Preparando ' + (k + 1) + ' de ' + itens.length + '...';
+        const item = itens[k];
+        const docs = await buscarDocs(item);
+        const carimbo = carimboDe(item);
+        let primeira = true;
+        for (const lista of [docs.nota, docs.pedido]) {
+          for (const src of lista) {
+            const imgs = ehPdf(src) ? await pdfParaImagens(src) : [src];
+            imgs.forEach(function(p) {
+              paginas.push({ src: p, carimbo: lista === docs.nota && primeira ? carimbo : null, legenda: primeira ? legendaDe(item, false) : '' });
+              primeira = false;
+            });
+          }
+        }
+      }
+      if (!paginas.length) { mostrarAviso('Os documentos dessas notas já foram removidos do Drive.', false); return; }
+      await imprimirPaginas('', paginas);
+      itens.forEach(registrarImpressao);
+    } catch (erro) {
+      mostrarAviso('Não consegui preparar a impressão: ' + erro.message, false);
+    } finally {
+      botao.disabled = false;
+      botao.textContent = '🖨 Imprimir selecionadas';
+    }
+  }
+
+  function baixarSelecionadas() {
+    const pend = Array.from(selecionados.values()).filter(function(i) { return !i.conferido; });
+    if (!pend.length) return;
+    const semImpressao = pend.filter(function(i) { return !i.impressoConf; }).length;
+    if (!confirm('Dar baixa em ' + pend.length + ' nota(s)?' + (semImpressao ? '\n\n' + semImpressao + ' ainda não foram impressas.' : ''))) return;
+    pend.forEach(function(i) { alternarConferido(i, null, null, true); });
+    selecionados.clear();
+    desenhar();
+  }
 
   function abrirLinksAlmox() {
     const area = $('listaLinks');
@@ -1825,6 +1903,8 @@
     $('notaTitulo').textContent = 'Conferência da nota Nº ' + item.id;
     atualizarBotaoImprimirNota();
     $('botaoExcluirNota').hidden = !item.podeExcluir;
+    montarDivergencia(item);
+    atualizarNavNota();
     $('notaSubtitulo').textContent = [item.fazenda || 'Sem fazenda', item.data, item.notaFiscal ? (item.comNf === 'Não' ? 'OS ' : 'NF ') + item.notaFiscal : '', item.fornecedor].filter(Boolean).join(' · ');
     montarDadosNota();
     mostrarAvisoNota('', true);
@@ -2243,6 +2323,75 @@
     notaItem = null;
   }
 
+  // Anterior / próxima: segue a lista como está na tela (aba, filtros e ordem)
+  function vizinhaDaNota(passo) {
+    const lista = calcularVisiveis(false);
+    const i = lista.indexOf(notaItem);
+    return i === -1 ? null : lista[i + passo] || null;
+  }
+  function atualizarNavNota() {
+    const lista = calcularVisiveis(false);
+    const i = lista.indexOf(notaItem);
+    $('notaAnterior').disabled = i <= 0;
+    $('notaProxima').disabled = i === -1 || i >= lista.length - 1;
+    $('notaPosicao').textContent = i === -1 ? '' : (i + 1) + ' de ' + lista.length;
+    const baixar = $('botaoBaixarProxima');
+    baixar.hidden = !notaItem || notaItem.conferido;
+    baixar.textContent = vizinhaDaNota(1) ? '✓ Baixar e próxima' : '✓ Baixar';
+  }
+  function irParaNota(passo) {
+    const alvo = vizinhaDaNota(passo);
+    if (!alvo) return;
+    if (notaTemAlteracoes() && !confirm('Há correções não salvas. Sair desta nota mesmo assim?')) return;
+    limparBlobs();
+    abrirNota(alvo);
+  }
+  function baixarEProxima() {
+    const item = notaItem;
+    if (!item || item.conferido) return;
+    if (notaTemAlteracoes() && !confirm('Há correções não salvas. Dar baixa sem salvar?')) return;
+    const proxima = vizinhaDaNota(1);
+    if (!item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa.\n\nDar baixa mesmo assim?')) return;
+    alternarConferido(item, null, null, true);
+    if (proxima) { limparBlobs(); abrirNota(proxima); } else fecharNota(true);
+  }
+
+  // Divergência (SC do almoxarifado ≠ SC da nota): o conferente decide
+  function montarDivergencia(item) {
+    const caixa = $('notaDivergencia');
+    caixa.innerHTML = '';
+    caixa.hidden = item.conferido || item.etapa !== 'Divergência';
+    if (caixa.hidden) return;
+    const a = item.almox || {};
+    caixa.appendChild(criar('div', '', 'Divergência de SC: na nota está ' + (item.sc || 'vazio') + ', o almoxarifado informou ' + (a.sc || 'vazio') + (a.por ? ' (' + a.por + ')' : '') + '. Decida:'));
+    const linha = criar('div', 'botoes-div');
+    [['manter', '✓ Aceitar: vale a SC da nota'], ['usarAlmox', '✓ Aceitar: vale a SC do almoxarifado'], ['devolver', '↩ Devolver ao almoxarifado']].forEach(function(op) {
+      const b = criar('button', 'botao-sec', op[1]);
+      b.type = 'button';
+      b.onclick = function() { resolverDivergencia(item, op[0], b); };
+      linha.appendChild(b);
+    });
+    caixa.appendChild(linha);
+  }
+  function resolverDivergencia(item, acao, botao) {
+    const obs = window.prompt(acao === 'devolver' ? 'Motivo para devolver ao almoxarifado (aparece no histórico):' : 'Observação (opcional, fica no histórico):', '');
+    if (obs === null) return;
+    if (acao === 'devolver' && obs.trim().length < 5) { mostrarAvisoNota('Escreva o motivo da devolução.', false); return; }
+    botao.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(r) {
+        botao.disabled = false;
+        if (!r.ok) { mostrarAvisoNota(r.mensagem, false); return; }
+        substituirItem(r.item);
+        const novo = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0];
+        desenhar();
+        if (novo) { notaItem = novo; montarDadosNota(); montarDivergencia(novo); atualizarNavNota(); $('notaEtapa').textContent = novo.etapa; }
+        mostrarAvisoNota(acao === 'devolver' ? 'Devolvida ao almoxarifado ✓' : 'Divergência resolvida ✓ — a nota está confirmada.', true);
+      })
+      .withFailureHandler(function(erro) { botao.disabled = false; mostrarAvisoNota('Erro: ' + erro.message, false); })
+      .resolverDivergencia(item.id, item.linha, acao, obs.trim());
+  }
+
   // Nota lançada à mão e ainda sem resposta do almoxarifado: sai da base (vai para a aba Excluídas da planilha).
   function excluirNota() {
     const item = notaItem;
@@ -2311,6 +2460,8 @@
     });
     ['novaArquivos', 'novaNF', 'novaValor', 'novaFornecedor', 'novaObs'].forEach(function(id) { $(id).value = ''; });
     $('novaLote').checked = false;
+    preparadas = null;
+    $('novaLista').hidden = true;
     atualizarLote();
     confirmouRepetida = false;
     $('novaRepetida').hidden = true;
@@ -2337,7 +2488,7 @@
     caixa.innerHTML = '';
     caixa.hidden = !achadas.length;
     confirmouRepetida = false;
-    $('botaoCriarNota').textContent = $('novaLote').checked ? 'Registrar uma nota por arquivo' : 'Registrar nota';
+    $('botaoCriarNota').textContent = $('novaLote').checked ? 'Ver as notas antes de registrar' : 'Registrar nota';
     if (!achadas.length) return;
     caixa.appendChild(criar('b', '', '⚠ Esse número já está no sistema. Se for a mesma nota, anexe o arquivo a ela em vez de criar outra:'));
     achadas.slice(0, 5).forEach(function(i) {
@@ -2384,60 +2535,84 @@
     return lidos;
   }
 
+  let preparadas = null; // notas separadas e mostradas na lista, esperando o "Registrar marcadas"
+  function valorDoTexto(t) {
+    const m = String(t || '').match(/VALOR TOTAL DA NOTA\D{0,40}?([\d.]{1,12},\d{2})/i) || String(t || '').match(/Valor L[íi]quido da NFS-?e\D{0,20}?([\d.]{1,12},\d{2})/i);
+    return m ? m[1] : '';
+  }
+  function desenharListaEnvio() {
+    const corpo = $('novaListaCorpo');
+    corpo.innerHTML = '';
+    (preparadas || []).forEach(function(x) {
+      const tr = criar('tr');
+      const tdc = criar('td');
+      const c = document.createElement('input');
+      c.type = 'checkbox';
+      c.checked = x.marcada;
+      c.disabled = !!x.situacao;
+      c.onchange = function() { x.marcada = c.checked; contarMarcadas(); };
+      tdc.appendChild(c);
+      tr.appendChild(tdc);
+      tr.appendChild(criar('td', '', x.nome));
+      tr.appendChild(criar('td', '', x.numero || '—'));
+      tr.appendChild(criar('td', '', x.valor ? 'R$ ' + x.valor : 'a ler'));
+      tr.appendChild(criar('td', x.classe || '', x.situacao || (x.iguais.length ? '⚠ já existe #' + x.iguais.map(function(i) { return i.id; }).join(', #') : 'pronta')));
+      corpo.appendChild(tr);
+    });
+    $('novaLista').hidden = !(preparadas && preparadas.length);
+  }
+  function contarMarcadas() {
+    const n = (preparadas || []).filter(function(x) { return x.marcada && !x.situacao; }).length;
+    $('botaoCriarNota').textContent = 'Registrar marcadas (' + n + ')';
+    $('botaoCriarNota').disabled = !n;
+  }
+
   // Uma chamada por arquivo, em sequência, mostrando o andamento. As que falharem são listadas no fim.
-  async function criarNotasEmLote(arquivos, prontos) {
+  async function criarNotasEmLote() {
     const botao = $('botaoCriarNota');
     const aviso = $('novaAviso');
-    aviso.className = 'aviso-modal';
-    aviso.textContent = 'Separando as notas e conferindo se alguma já está no sistema...';
-    let lidos;
-    try { lidos = prontos || await separarRepetidas(arquivos); } catch (e) { aviso.className = 'aviso-modal erro'; aviso.textContent = e.message; return; }
-    const repetidas = lidos.filter(function(x) { return x.iguais.length; });
-    if (repetidas.length) {
-      const texto = repetidas.map(function(x) { return '• ' + x.nome + ' (NF ' + x.numero + ') → já existe: Nº ' + x.iguais.map(function(i) { return i.id; }).join(', Nº '); }).join('\n');
-      if (!confirm(repetidas.length + ' arquivo(s) parecem já estar no sistema:\n\n' + texto + '\n\nOK = pular esses e criar só os outros.\nCancelar = voltar (para criar todos, desmarque o lote e envie um por um).')) { aviso.textContent = ''; return; }
-      lidos = lidos.filter(function(x) { return !x.iguais.length; });
-      if (!lidos.length) { aviso.textContent = 'Nada a criar: todos já estavam no sistema.'; return; }
-    }
+    const lidos = (preparadas || []).filter(function(x) { return x.marcada && !x.situacao; });
+    if (!lidos.length) return;
     const base = { origem: $('novaOrigem').value, fazenda: $('novaFazenda').value, obs: $('novaObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
-    const criadas = [], falhas = [], avisos = [];
+    let criadas = 0, falhas = 0;
     botao.disabled = true;
     for (let i = 0; i < lidos.length; i++) {
+      const x = lidos[i];
       aviso.className = 'aviso-modal';
       aviso.textContent = 'Enviando ' + (i + 1) + ' de ' + lidos.length + '...';
-      const nomeAtual = lidos[i].nome;
       try {
-        const lista = lidos[i].lista;
-        const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(Object.assign({}, base, { notaFiscal: lidos[i].numero }), lista, lidos[i].texto); });
-        if (r.ok) { criadas.push('#' + r.id + (r.pelaNota ? ' → ' + (r.fazenda || 'sem fazenda') : '')); if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso); }
-        else falhas.push(nomeAtual + ' (' + r.mensagem + ')');
-      } catch (erro) { falhas.push(nomeAtual + ' (' + erro.message + ')'); }
+        const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(Object.assign({}, base, { notaFiscal: x.numero }), x.lista, x.texto); });
+        if (r.ok) { criadas++; x.situacao = '✓ criada #' + r.id + (r.pelaNota ? ' → ' + (r.fazenda || 'sem fazenda') : '') + (r.aviso ? ' (possível duplicada)' : ''); x.classe = 'ok'; }
+        else { falhas++; x.situacao = '✗ ' + r.mensagem; x.classe = 'erro'; }
+      } catch (erro) { falhas++; x.situacao = '✗ ' + erro.message; x.classe = 'erro'; }
+      desenharListaEnvio();
     }
-    botao.disabled = false;
-    if (falhas.length) {
-      aviso.className = 'aviso-modal erro';
-      aviso.textContent = criadas.length + ' nota(s) registrada(s)' + (criadas.length ? ' (' + criadas.join(', ') + ')' : '') + '. Não foram: ' + falhas.join('; ');
-    } else {
-      $('modalNovaNota').hidden = true;
-      mostrarAviso(criadas.length + ' notas registradas (' + criadas.join(', ') + ') e na fila de leitura.' + (avisos.length ? ' ' + avisos.join(' ') : ''), !avisos.length);
-    }
-    if (criadas.length) carregar();
+    (preparadas || []).forEach(function(x) { if (!x.situacao) { x.situacao = '⏭ não enviada'; x.classe = 'pula'; } });
+    desenharListaEnvio();
+    botao.disabled = true;
+    botao.textContent = 'Concluído';
+    aviso.className = 'aviso-modal' + (falhas ? ' erro' : ' ok');
+    aviso.textContent = criadas + ' nota(s) registrada(s)' + (falhas ? ', ' + falhas + ' com erro (veja a lista)' : '') + '. Use "Copiar lista" para guardar o resultado.';
+    if (criadas) carregar();
   }
 
   async function criarNota() {
     const arquivos = $('novaArquivos').files;
     if (!arquivos.length) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Anexe a foto ou o PDF da nota.'; return; }
-    if ($('novaLote').checked) { criarNotasEmLote(Array.from(arquivos)); return; }
-    // um PDF com várias notas: oferece registrar uma nota para cada
+    if (preparadas) { criarNotasEmLote(); return; } // a lista já está na tela: envia as marcadas
     let partes;
     $('novaAviso').className = 'aviso-modal';
-    $('novaAviso').textContent = 'Lendo o arquivo...';
+    $('novaAviso').textContent = 'Lendo e separando as notas...';
     try { partes = await separarRepetidas(Array.from(arquivos)); } catch (e) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = e.message; return; }
-    $('novaAviso').textContent = '';
-    if (partes.length > arquivos.length && confirm('Encontrei ' + partes.length + ' notas diferentes no(s) arquivo(s).\n\nOK = registrar uma nota para cada (recomendado).\nCancelar = registrar tudo como uma nota só.')) {
-      criarNotasEmLote(Array.from(arquivos), partes);
+    // lote, ou um PDF com várias notas: mostra a lista para conferir antes de registrar
+    if ($('novaLote').checked || partes.length > arquivos.length) {
+      preparadas = partes.map(function(p) { return Object.assign(p, { marcada: !p.iguais.length, valor: valorDoTexto(p.texto), situacao: '' }); });
+      $('novaAviso').textContent = partes.length + ' nota(s) encontrada(s). Desmarque o que não quer registrar (as que já existem vêm desmarcadas) e clique em Registrar.';
+      desenharListaEnvio();
+      contarMarcadas();
       return;
     }
+    $('novaAviso').textContent = '';
     // mesmo número já no sistema: pede um segundo clique ("Criar nova mesmo assim")
     if (lancamentosComNumero($('novaNF').value).length && !confirmouRepetida) {
       verificarRepetida();
@@ -2564,6 +2739,17 @@
   $('inputAnexo').onchange = function() { enviarAnexos($('inputAnexo').files); };
   $('botaoSalvarCorrecao').onclick = salvarCorrecao;
   $('botaoExcluirNota').onclick = excluirNota;
+  $('notaAnterior').onclick = function() { irParaNota(-1); };
+  $('notaProxima').onclick = function() { irParaNota(1); };
+  $('botaoBaixarProxima').onclick = baixarEProxima;
+  $('botaoImprimirSel').onclick = imprimirSelecionadas;
+  $('botaoBaixarSel').onclick = baixarSelecionadas;
+  $('botaoLimparSel').onclick = function() { selecionados.clear(); desenhar(); };
+  ['novaArquivos', 'novaLote'].forEach(function(id) { $(id).addEventListener('change', function() { preparadas = null; $('novaLista').hidden = true; $('botaoCriarNota').textContent = $('novaLote').checked ? 'Ver as notas antes de registrar' : 'Registrar nota'; }); });
+  $('novaCopiar').onclick = function() {
+    const txt = (preparadas || []).map(function(x) { return [x.nome, x.numero || '', x.valor || '', x.situacao || ''].join('\t'); }).join('\n');
+    navigator.clipboard.writeText('Arquivo\tNF\tValor\tSituação\n' + txt).then(function() { $('novaCopiar').textContent = 'Copiado ✓'; });
+  };
 
   document.querySelectorAll('[data-fechar]').forEach(function(b) {
     b.onclick = function() { if (b.dataset.fechar === 'modalNota') fecharNota(false); else $(b.dataset.fechar).hidden = true; };
@@ -2572,6 +2758,11 @@
     $(id).addEventListener('mousedown', function(e) { if (e.target === $(id)) { if (id === 'modalNota') fecharNota(false); else $(id).hidden = true; } });
   });
   document.addEventListener('keydown', function(e) {
+    if (!$('modalNota').hidden && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) {
+      e.preventDefault();
+      irParaNota(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (!$('modalNota').hidden) fecharNota(false);
     else ['modalNovaNota', 'modalEnvio'].forEach(function(id) { $(id).hidden = true; });
@@ -2583,17 +2774,6 @@
     aguardarSalvamentos(function() { botao.disabled = false; carregar(); });
   };
 
-  $('botaoConsolidado').onclick = function() {
-    const botao = $('botaoConsolidado');
-    botao.disabled = true;
-    botao.textContent = 'Enviando...';
-    aguardarSalvamentos(function() {
-      google.script.run
-        .withSuccessHandler(function(r) { botao.disabled = false; botao.textContent = '📧 Enviar consolidado'; mostrarAviso(r.mensagem, r.ok); })
-        .withFailureHandler(function(erro) { botao.disabled = false; botao.textContent = '📧 Enviar consolidado'; mostrarAviso('Erro: ' + erro.message, false); })
-        .enviarRelatorioConsolidado();
-    });
-  };
 
   carregar();
 </script>
