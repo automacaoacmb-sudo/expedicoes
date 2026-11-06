@@ -134,6 +134,7 @@
   .cartao-num .bolha { width: 8px; height: 8px; border-radius: 50%; background: #8fb59c; flex: none; }
   .cartao-num.aviso .bolha { background: #7fa3c9; }
   .cartao-num.perigo .bolha { background: #d98b82; }
+  .cartao-num.azul .bolha { background: #b5bfb8; }
   .cartao-num .rotulo { font-weight: 600; }
   .cartao-num .numero { font-size: 13px; font-weight: 750; color: var(--cor-texto); }
   .cartao-num.urgente { color: #b8501c; border-color: #f4d3bd; }
@@ -403,18 +404,12 @@
     const etapa = $('filtroEtapa').value;
     const porEtapa = nome => () => { $('filtroEtapa').value = nome; };
     const cartoes = [
-      { rotulo: 'Pendentes', numero: pend.length, ativo: abaFin === 'pendentes' && !etapa && !filtroUrgentes && !filtroDuplicadas,
-        acao: () => {} },
+      { rotulo: 'Pendentes', numero: pend.length, ativo: abaFin === 'pendentes' && !etapa, acao: () => {} },
       { rotulo: 'Aguardando almoxarifado', numero: pend.filter(i => i.etapa === 'Aguardando almoxarifado').length, classe: 'aviso',
-        ativo: etapa === 'Aguardando almoxarifado', acao: porEtapa('Aguardando almoxarifado') },
-      { rotulo: 'Confirmadas pelo almoxarifado', numero: pend.filter(i => i.etapa === 'Confirmada pelo almoxarifado').length,
-        ativo: etapa === 'Confirmada pelo almoxarifado', acao: porEtapa('Confirmada pelo almoxarifado') },
-      { rotulo: 'Com divergência', numero: pend.filter(i => i.etapa === 'Divergência').length, classe: 'perigo',
-        ativo: etapa === 'Divergência', acao: porEtapa('Divergência') },
-      { rotulo: '⚑ Urgentes', numero: pend.filter(i => i.urgencia).length, classe: 'urgente', semBolha: true,
-        ativo: filtroUrgentes, acao: () => { filtroUrgentes = true; } },
-      { rotulo: '⚠ Possíveis duplicadas', numero: pend.filter(i => i.duplicadaDe.length).length, classe: 'duplicada', semBolha: true,
-        ativo: filtroDuplicadas, acao: () => { filtroDuplicadas = true; } }
+        ativo: abaFin === 'pendentes' && etapa === 'Aguardando almoxarifado', acao: porEtapa('Aguardando almoxarifado') },
+      { rotulo: 'Confirmadas', numero: pend.filter(i => i.etapa === 'Confirmada pelo almoxarifado').length,
+        ativo: abaFin === 'pendentes' && etapa === 'Confirmada pelo almoxarifado', acao: porEtapa('Confirmada pelo almoxarifado') },
+      { rotulo: 'Baixadas', numero: itens.length - pend.length, classe: 'azul', ativo: abaFin === 'baixadas', acao: () => { abaFin = 'baixadas'; } }
     ];
     const caixa = $('cartoes');
     caixa.innerHTML = '';
