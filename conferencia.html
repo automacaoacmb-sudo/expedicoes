@@ -669,6 +669,7 @@
         <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
         <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
         <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden title="Dar baixa nesta nota (confirmada pelo almoxarifado)">✓ Baixar</button>
+        <button type="button" class="botao-principal" id="botaoBaixarESeguir" hidden title="Dar baixa nesta nota e abrir a próxima da lista">✓ Baixar e próxima ▶</button>
       </div>
     </div>
   </div>
@@ -2395,7 +2396,9 @@
     $('notaAnterior').disabled = i <= 0;
     $('notaProxima').disabled = i === -1 || i >= lista.length - 1;
     $('notaPosicao').textContent = i === -1 ? '' : (i + 1) + ' de ' + lista.length;
-    $('botaoBaixarProxima').hidden = !notaItem || notaItem.conferido || notaItem.etapa !== 'Confirmada pelo almoxarifado';
+    const podeBaixar = notaItem && !notaItem.conferido && notaItem.etapa === 'Confirmada pelo almoxarifado';
+    $('botaoBaixarProxima').hidden = !podeBaixar;
+    $('botaoBaixarESeguir').hidden = !podeBaixar || !vizinhaDaNota(1);
   }
   function irParaNota(passo) {
     const alvo = vizinhaDaNota(passo);
@@ -2404,13 +2407,16 @@
     limparBlobs();
     abrirNota(alvo);
   }
-  function baixarEProxima() {
+  function baixarEProxima(seguir) {
     const item = notaItem;
     if (!item || item.conferido) return;
     if (notaTemAlteracoes() && !confirm('Há correções não salvas. Dar baixa sem salvar?')) return;
     if (!item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa.\n\nDar baixa mesmo assim?')) return;
+    const proxima = seguir === true ? vizinhaDaNota(1) : null; // calcula antes: depois da baixa ela sai da lista
     alternarConferido(item, null, null, true);
+    if (proxima) { limparBlobs(); abrirNota(proxima); mostrarAvisoNota('Nota #' + item.id + ' baixada ✓', true); return; }
     $('botaoBaixarProxima').hidden = true;
+    $('botaoBaixarESeguir').hidden = true;
     mostrarAvisoNota('Nota #' + item.id + ' baixada ✓', true);
   }
 
@@ -2800,7 +2806,8 @@
   $('botaoExcluirNota').onclick = excluirNota;
   $('notaAnterior').onclick = function() { irParaNota(-1); };
   $('notaProxima').onclick = function() { irParaNota(1); };
-  $('botaoBaixarProxima').onclick = baixarEProxima;
+  $('botaoBaixarProxima').onclick = function() { baixarEProxima(false); };
+  $('botaoBaixarESeguir').onclick = function() { baixarEProxima(true); };
   $('botaoImprimirSel').onclick = imprimirSelecionadas;
   $('botaoBaixarSel').onclick = baixarSelecionadas;
   $('botaoLimparSel').onclick = function() { selecionados.clear(); desenhar(); };
