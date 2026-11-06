@@ -586,7 +586,7 @@
         </div>
       </div>
       <!-- atalhos de etapa/origem saíram da tela (Urgentes e Duplicadas foram para o resumo; etapa e origem filtram pela coluna Etapa) -->
-      <div hidden><div id="chipsEtapa"></div><div id="chipsOrigem"></div></div>
+
     </div>
 
     <div class="barra-selecao" id="barraSelecao" hidden>
@@ -976,7 +976,7 @@
     }
     if (atualizando) info += ' · ⏳ mostrando a última lista, atualizando...';
     $('infoLista').textContent = info;
-    desenharChips();
+
     desenharCorpo(visiveis);
     atualizarBarraSelecao();
   }
@@ -998,7 +998,7 @@
     const contar = function(etapa) { const g = GRUPO_ETAPA[etapa] || [etapa]; return dados.pendentes.filter(function(i) { return g.indexOf(i.etapa) !== -1; }).length; };
     const porEtapa = function(nome) { return { ativo: abaAtual === 'pendentes' && filtroEtapa === nome, liga: function() { filtroEtapa = nome; } }; };
     const cartoes = [
-      Object.assign({ rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', classe: '',
+      Object.assign({ rotulo: 'Todas', numero: dados.pendentes.length, dica: 'Mostrar todas as pendências (limpa os atalhos)', classe: '',
         ativo: abaAtual === 'pendentes' && !filtroEtapa && !filtroUrgentes && !filtroDuplicadas, liga: function() {} }),
       Object.assign({ rotulo: 'Faltam dados', numero: contar('Faltam dados'), dica: 'Sem fazenda, fornecedor, NF ou valor: complete na nota', classe: 'faltam' }, porEtapa('Faltam dados')),
       Object.assign({ rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'A fazenda ainda vai confirmar o recebimento', classe: 'aviso' }, porEtapa('Aguardando almoxarifado')),
@@ -1025,61 +1025,6 @@
         desenhar();
       };
       area.appendChild(b);
-    });
-  }
-
-  function desenharChipsOrigem() {
-    const area = $('chipsOrigem');
-    area.innerHTML = '';
-    const contagem = {};
-    calcularVisiveis(false, true).forEach(function(i) { const o = i.origem || 'Expedição'; contagem[o] = (contagem[o] || 0) + 1; });
-    const outras = Object.keys(contagem).filter(function(o) { return o !== 'Expedição'; });
-    if (!filtroOrigem && !outras.length) { area.hidden = true; return; }
-    area.hidden = false;
-    const todas = criar('button', 'chip-filtro' + (filtroOrigem === '' ? ' ativo' : ''), 'Todas as origens');
-    todas.onclick = function() { filtroOrigem = ''; atualizarLista(); };
-    area.appendChild(todas);
-    ORDEM_ORIGENS.forEach(function(o) {
-      if (!contagem[o] && filtroOrigem !== o) return;
-      const chip = criar('button', 'chip-filtro' + (filtroOrigem === o ? ' ativo' : ''), (ROTULO_ORIGEM[o] || o) + ' (' + (contagem[o] || 0) + ')');
-      if (o === 'Contas a Pagar') chip.title = 'Notas anexadas ou pedidas pelo financeiro (contas a pagar)';
-      chip.onclick = function() { filtroOrigem = filtroOrigem === o ? '' : o; atualizarLista(); };
-      area.appendChild(chip);
-    });
-  }
-
-  function desenharChips() {
-    desenharChipsOrigem();
-    const area = $('chipsEtapa');
-    area.innerHTML = '';
-    if (abaAtual !== 'pendentes') { area.hidden = true; return; }
-    area.hidden = false;
-    const contagem = {};
-    calcularVisiveis(true).forEach(function(i) { contagem[i.etapa] = (contagem[i.etapa] || 0) + 1; });
-    // urgentes (pedido do financeiro): um clique mostra só elas
-    const nUrg = calcularVisiveis(false, false, true).filter(function(i) { return i.urgencia; }).length;
-    if (nUrg || filtroUrgentes) {
-      const urg = criar('button', 'chip-filtro chip-urgentes' + (filtroUrgentes ? ' ativo' : ''), '⚑ Urgentes (' + nUrg + ')');
-      urg.title = 'Mostrar só as notas em que o financeiro pediu urgência';
-      urg.onclick = function() { filtroUrgentes = !filtroUrgentes; desenhar(); };
-      area.appendChild(urg);
-    }
-    // possíveis duplicadas primeiro: um clique mostra só elas
-    const nDup = calcularVisiveis(false, false, true).filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length;
-    if (nDup || filtroDuplicadas) {
-      const dup = criar('button', 'chip-filtro chip-duplicadas' + (filtroDuplicadas ? ' ativo' : ''), '⚠ Possíveis duplicadas (' + nDup + ')');
-      dup.title = 'Mostrar só as notas que podem ser a mesma (mesmo número e mesmo fornecedor ou valor). Abra a nota e use "Juntar".';
-      dup.onclick = function() { filtroDuplicadas = !filtroDuplicadas; atualizarLista(); };
-      area.appendChild(dup);
-    }
-    const todas = criar('button', 'chip-filtro' + (filtroEtapa === '' ? ' ativo' : ''), 'Todas as etapas');
-    todas.onclick = function() { filtroEtapa = ''; atualizarLista(); };
-    area.appendChild(todas);
-    ORDEM_ETAPAS.forEach(function(etapa) {
-      if (!contagem[etapa]) return;
-      const chip = criar('button', 'chip-filtro' + (filtroEtapa === etapa ? ' ativo' : ''), etapa + ' (' + contagem[etapa] + ')');
-      chip.onclick = function() { filtroEtapa = filtroEtapa === etapa ? '' : etapa; atualizarLista(); };
-      area.appendChild(chip);
     });
   }
 
@@ -1263,7 +1208,8 @@
         case null:
           td = criar('td', 'acao');
           td.appendChild(criarBotaoVer(item));
-          td.appendChild(criarBotaoAcao(item, function() { return area; }));
+          const botaoAcao = criarBotaoAcao(item, function() { return area; });
+          if (botaoAcao) td.appendChild(botaoAcao);
           if (item.impressoConf) td.appendChild(sub('🖨 impresso ' + item.impressoConf));
           break;
         default:
@@ -1446,6 +1392,8 @@
         substituirItem(r.item);
         desenhar();
         mostrarAviso('Nota #' + item.id + ' agora é da fazenda ' + fazenda + ': já aparece no portal dela.', true);
+        const novo = notaItem && String(notaItem.id) === String(r.item.id) ? dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0] : null;
+        if (novo) { notaItem = novo; montarDadosNota(); montarDivergencia(novo); atualizarNavNota(); mostrarAvisoNota('Movida para ' + fazenda + ' ✓', true); }
       })
       .withFailureHandler(function(erro) { salvamentosPendentes--; botao.disabled = false; sel.disabled = false; botao.textContent = 'Mover'; mostrarAviso('Erro: ' + erro.message, false); })
       .corrigirLancamento(item.id, item.linha, { fazenda: fazenda });
@@ -1574,6 +1522,7 @@
   }
 
   function criarBotaoAcao(item, obterArea) {
+    if (!item.conferido && item.etapa !== 'Confirmada pelo almoxarifado') return null; // baixa é a última ação: só depois da confirmação do almoxarifado
     const botao = criar('button', item.conferido ? 'botao-desfazer' : 'botao-ok', item.conferido ? 'Desfazer' : 'Baixar');
     botao.title = item.conferido ? 'Voltar a nota para as pendências' : 'Dar baixa nesta nota';
     botao.onclick = function() { alternarConferido(item, botao, obterArea()); };
@@ -1671,10 +1620,10 @@
     const itens = Array.from(selecionados.values());
     barra.hidden = !itens.length;
     if (!itens.length) return;
-    const pend = itens.filter(function(i) { return !i.conferido; });
+    const pend = itens.filter(function(i) { return !i.conferido && i.etapa === 'Confirmada pelo almoxarifado'; });
     $('contaSelecao').textContent = itens.length + ' selecionada(s)';
     $('botaoBaixarSel').hidden = !pend.length;
-    $('botaoBaixarSel').textContent = '✓ Baixar ' + pend.length;
+    $('botaoBaixarSel').textContent = '✓ Baixar ' + pend.length + ' confirmada(s)';
   }
 
   // imprime várias notas numa impressão só (cada uma com o seu carimbo na 1ª folha) e marca cada uma como impressa
@@ -1713,10 +1662,12 @@
   }
 
   function baixarSelecionadas() {
-    const pend = Array.from(selecionados.values()).filter(function(i) { return !i.conferido; });
+    const marcadas = Array.from(selecionados.values()).filter(function(i) { return !i.conferido; });
+    const pend = marcadas.filter(function(i) { return i.etapa === 'Confirmada pelo almoxarifado'; });
     if (!pend.length) return;
+    const puladas = marcadas.length - pend.length;
     const semImpressao = pend.filter(function(i) { return !i.impressoConf; }).length;
-    if (!confirm('Dar baixa em ' + pend.length + ' nota(s)?' + (semImpressao ? '\n\n' + semImpressao + ' ainda não foram impressas.' : ''))) return;
+    if (!confirm('Dar baixa em ' + pend.length + ' nota(s)?' + (semImpressao ? '\n\n' + semImpressao + ' ainda não foram impressas.' : '') + (puladas ? '\n\n' + puladas + ' marcada(s) ainda não confirmada(s) pelo almoxarifado ficam de fora.' : ''))) return;
     pend.forEach(function(i) { alternarConferido(i, null, null, true); });
     selecionados.clear();
     desenhar();
@@ -2009,6 +1960,9 @@
       bloco.appendChild(campo);
       area.appendChild(bloco);
       notaCampos[c.chave] = campo;
+      campo.addEventListener('input', atualizarSalvar);
+      campo.addEventListener('change', atualizarSalvar);
+      setTimeout(atualizarSalvar, 0);
     });
 
     const a = item.almox || {};
@@ -2375,6 +2329,8 @@
     }, function(erro) { mostrarAvisoNota(erro.message, false); });
   }
 
+  function atualizarSalvar() { if (notaItem) $('botaoSalvarCorrecao').disabled = !notaTemAlteracoes(); }
+
   function notaTemAlteracoes() {
     return CAMPOS_MODAL.some(function(c) { return notaCampos[c.chave].value.trim() !== valorDoCampo(notaItem, c.chave); });
   }
@@ -2426,9 +2382,15 @@
   function montarDivergencia(item) {
     const caixa = $('notaDivergencia');
     caixa.innerHTML = '';
+    const a = item.almox || {};
+    if (!item.conferido && item.etapa === 'Fazenda errada') {
+      caixa.hidden = false;
+      caixa.appendChild(criar('div', '', '↩ O almoxarifado' + (a.por ? ' (' + a.por + ')' : '') + ' disse que a nota não é da fazenda ' + (item.fazenda || '—') + (a.obs ? ': "' + a.obs + '"' : '') + '. Mova para a fazenda certa:'));
+      caixa.appendChild(criarTrocaFazenda(item, a.obs || ''));
+      return;
+    }
     caixa.hidden = item.conferido || item.etapa !== 'Divergência';
     if (caixa.hidden) return;
-    const a = item.almox || {};
     caixa.appendChild(criar('div', '', 'Divergência de SC: na nota está ' + (item.sc || 'vazio') + ', o almoxarifado informou ' + (a.sc || 'vazio') + (a.por ? ' (' + a.por + ')' : '') + '. Decida:'));
     const linha = criar('div', 'botoes-div');
     [['manter', '✓ Aceitar: vale a SC da nota'], ['usarAlmox', '✓ Aceitar: vale a SC do almoxarifado'], ['devolver', '↩ Devolver ao almoxarifado']].forEach(function(op) {
