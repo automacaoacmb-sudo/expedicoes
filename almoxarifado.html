@@ -640,7 +640,7 @@
   }
 
   /* ---------- Visor de documentos (como na Conferência): abas, miniaturas, zoom e giro ---------- */
-  const ZOOMS = [1, 1.5, 2, 3, 4];
+  const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
   let docsVista = { nota: [], pedido: [] };
   let abaDoc = 'nota';
   let zoomDoc = 1, giroDoc = 0, vezGiro = 0;
@@ -744,13 +744,17 @@
   function aplicarZoom() {
     const area = $('fotoArea');
     const imgs = imagensVista();
-    area.classList.remove('zoomado');
-    imgs.forEach(img => { img.style.width = ''; });
-    if (zoomDoc > 1) {
-      const bases = imgs.map(img => img.getBoundingClientRect().width);
-      area.classList.add('zoomado');
-      imgs.forEach((img, k) => { img.style.width = Math.round(bases[k] * zoomDoc) + 'px'; });
-    }
+    // 100% = a página inteira cabe na área; acima disso aparece a rolagem
+    const larg = Math.max(100, area.clientWidth - 16), alt = Math.max(100, area.clientHeight - 16);
+    area.classList.toggle('zoomado', zoomDoc > 1);
+    imgs.forEach(img => {
+      if (!img.naturalWidth) { img.onload = aplicarZoom; return; }
+      const cabe = Math.min(larg, alt * img.naturalWidth / img.naturalHeight);
+      img.style.width = Math.round(cabe * zoomDoc) + 'px';
+      img.style.height = 'auto';
+      img.style.maxWidth = 'none';
+      img.style.maxHeight = 'none';
+    });
     $('vistaZoom').textContent = Math.round(zoomDoc * 100) + '%';
     const semDoc = !paginasVista.length;
     ['vistaAjustar', 'vistaGirarEsq', 'vistaGirarDir'].forEach(id => { $(id).disabled = semDoc; });
