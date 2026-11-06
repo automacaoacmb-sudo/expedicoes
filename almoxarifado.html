@@ -278,7 +278,6 @@
         <label class="req">A mercadoria chegou?</label>
         <div class="toggle">
           <button type="button" class="sim" id="botaoSim">✓ Sim, recebi</button>
-          <button type="button" class="nao" id="botaoNao">✗ Não chegou</button>
           <button type="button" class="outra" id="botaoOutra">↩ Não é desta fazenda</button>
         </div>
       </div>
@@ -796,7 +795,6 @@
 
   function atualizarSituacao() {
     $('botaoSim').classList.toggle('ativo', situacao === 'Recebido');
-    $('botaoNao').classList.toggle('ativo', situacao === 'Não recebido');
     $('botaoOutra').classList.toggle('ativo', situacao === 'Outra fazenda');
     $('camposRecebido').hidden = situacao !== 'Recebido';
     $('rotuloObs').textContent = situacao === 'Outra fazenda' ? 'De qual fazenda é? (se souber)' : 'Observações';
@@ -1044,7 +1042,6 @@
   $('botaoAtualizar').onclick = async () => { $('botaoAtualizar').disabled = true; Object.keys(cacheDocs).forEach(k => delete cacheDocs[k]); if (await carregar(true)) { mostrarLista(); aviso('Lista atualizada.', true); } $('botaoAtualizar').disabled = false; };
   $('busca').oninput = mostrarLista;
   $('botaoSim').onclick = () => { situacao = 'Recebido'; atualizarSituacao(); };
-  $('botaoNao').onclick = () => { situacao = 'Não recebido'; atualizarSituacao(); };
   $('botaoOutra').onclick = () => { situacao = 'Outra fazenda'; atualizarSituacao(); };
   $('botaoHoje').onclick = () => { $('campoData').value = hojeLocal(); };
   $('solHoje').onclick = () => { $('solData').value = hojeLocal(); };
