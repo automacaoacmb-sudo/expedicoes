@@ -203,6 +203,82 @@ const Comum = (() => {
     return saida;
   }
 
+  /**
+   * Enquadrar a foto: mostra a imagem com um retângulo de cantos arrastáveis (dedo ou mouse) para cortar o
+   * fundo. "Usar recorte" devolve só a parte de dentro; "Foto inteira" devolve a foto como veio.
+   * PDF ou algo que não é foto: devolve direto, sem perguntar.
+   */
+  function enquadrar(dataUrl) {
+    if (!/^data:image\//.test(dataUrl || '')) return Promise.resolve(dataUrl);
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onerror = () => resolve(dataUrl);
+      img.onload = () => {
+        const fundo = criar('div', 'enq-fundo');
+        fundo.innerHTML = '<div class="enq-dica">Arraste os cantos para deixar só a nota</div><div class="enq-palco"></div>' +
+          '<div class="enq-botoes"><button type="button" class="enq-inteira">Foto inteira</button><button type="button" class="enq-ok">✓ Usar recorte</button></div>';
+        document.body.appendChild(fundo);
+        const palco = fundo.querySelector('.enq-palco');
+        palco.appendChild(img);
+        const caixa = criar('div', 'enq-caixa');
+        ['nw', 'ne', 'sw', 'se'].forEach(c => { const p = criar('span', 'enq-canto enq-' + c); p.dataset.canto = c; caixa.appendChild(p); });
+        palco.appendChild(caixa);
+        // retângulo em frações da imagem (0 a 1); começa com uma margem pequena
+        const r = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 };
+        const desenhar = () => {
+          // a foto cabe inteira no palco (sem rolagem); o retângulo acompanha
+          const escala = Math.min((palco.clientWidth - 28) / img.naturalWidth, (palco.clientHeight - 28) / img.naturalHeight);
+          img.style.width = Math.round(img.naturalWidth * escala) + 'px';
+          img.style.height = Math.round(img.naturalHeight * escala) + 'px';
+          const W = img.clientWidth, H = img.clientHeight;
+          Object.assign(caixa.style, { left: img.offsetLeft + r.x * W + 'px', top: img.offsetTop + r.y * H + 'px', width: r.w * W + 'px', height: r.h * H + 'px' });
+        };
+        let arraste = null;
+        const ponto = e => { const b = img.getBoundingClientRect(); return { x: (e.clientX - b.left) / b.width, y: (e.clientY - b.top) / b.height }; };
+        caixa.addEventListener('pointerdown', e => {
+          e.preventDefault();
+          caixa.setPointerCapture(e.pointerId);
+          arraste = { canto: e.target.dataset.canto || 'mover', inicio: ponto(e), r0: Object.assign({}, r) };
+        });
+        caixa.addEventListener('pointermove', e => {
+          if (!arraste) return;
+          const p = ponto(e), d = { x: p.x - arraste.inicio.x, y: p.y - arraste.inicio.y }, o = arraste.r0, MIN = 0.08;
+          const lim = v => Math.max(0, Math.min(1, v));
+          if (arraste.canto === 'mover') {
+            r.x = Math.max(0, Math.min(1 - o.w, o.x + d.x)); r.y = Math.max(0, Math.min(1 - o.h, o.y + d.y));
+          } else {
+            let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+            if (arraste.canto.indexOf('w') >= 0) x1 = Math.min(lim(o.x + d.x), x2 - MIN); else x2 = Math.max(lim(o.x + o.w + d.x), x1 + MIN);
+            if (arraste.canto.indexOf('n') >= 0) y1 = Math.min(lim(o.y + d.y), y2 - MIN); else y2 = Math.max(lim(o.y + o.h + d.y), y1 + MIN);
+            Object.assign(r, { x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+          }
+          desenhar();
+        });
+        caixa.addEventListener('pointerup', () => { arraste = null; });
+        const fechar = valor => { window.removeEventListener('resize', desenhar); fundo.remove(); resolve(valor); };
+        fundo.querySelector('.enq-inteira').onclick = () => fechar(dataUrl);
+        fundo.querySelector('.enq-ok').onclick = () => {
+          const N = { w: img.naturalWidth, h: img.naturalHeight };
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(r.w * N.w));
+          c.height = Math.max(1, Math.round(r.h * N.h));
+          c.getContext('2d').drawImage(img, r.x * N.w, r.y * N.h, c.width, c.height, 0, 0, c.width, c.height);
+          fechar(c.toDataURL('image/jpeg', 0.82));
+        };
+        window.addEventListener('resize', desenhar);
+        requestAnimationFrame(desenhar);
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  // fotos de uma lista (dataUrls): cada uma passa pelo enquadrar, uma de cada vez
+  async function enquadrarTodas(lista) {
+    const saida = [];
+    for (const d of lista) saida.push(await enquadrar(d));
+    return saida;
+  }
+
   async function pdfParaImagens(dataUrl) {
     const pdfjs = await carregarPdfJs();
     const doc = await pdfjs.getDocument({ data: bytesDe(dataUrl) }).promise;
@@ -276,9 +352,20 @@ const Comum = (() => {
     return t ? 'Obs.: ' + (t.length > 220 ? t.slice(0, 220) + '…' : t) : '';
   }
 
-  // estilo da impressão (só a área de impressão vai para o papel)
+  // estilo da impressão (só a área de impressão vai para o papel) e do enquadrar
   const estilo = document.createElement('style');
   estilo.textContent = `
+    .enq-fundo { position: fixed; inset: 0; z-index: 9999; background: #111; display: flex; flex-direction: column; touch-action: none; }
+    .enq-dica { color: #fff; font: 600 14px Arial, sans-serif; text-align: center; padding: calc(10px + env(safe-area-inset-top)) 10px 8px; }
+    .enq-palco { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 14px; }
+    .enq-palco img { max-width: none; max-height: none; flex: none; display: block; user-select: none; -webkit-user-drag: none; }
+    .enq-caixa { position: absolute; border: 2px solid #4ade80; box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); cursor: move; touch-action: none; }
+    .enq-canto { position: absolute; width: 30px; height: 30px; background: #4ade80; border: 3px solid #fff; border-radius: 50%; touch-action: none; }
+    .enq-nw { left: -16px; top: -16px; cursor: nwse-resize; } .enq-ne { right: -16px; top: -16px; cursor: nesw-resize; }
+    .enq-sw { left: -16px; bottom: -16px; cursor: nesw-resize; } .enq-se { right: -16px; bottom: -16px; cursor: nwse-resize; }
+    .enq-botoes { flex: none; display: flex; gap: 10px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); }
+    .enq-botoes button { flex: 1; padding: 14px; border-radius: 10px; font: 700 15px Arial, sans-serif; border: 1.5px solid #fff; background: transparent; color: #fff; cursor: pointer; }
+    .enq-botoes .enq-ok { background: #2f7d55; border-color: #2f7d55; }
     #areaImpressao { display: none; }
     @media print {
       /* A4 com margem mínima: o documento ocupa a folha; a página de resumo ganha respiro por dentro */
@@ -310,5 +397,5 @@ const Comum = (() => {
     }`;
   document.head.appendChild(estilo);
 
-  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo, separarNotasPdf };
+  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo, separarNotasPdf, enquadrar, enquadrarTodas };
 })();
