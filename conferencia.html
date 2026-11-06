@@ -459,6 +459,60 @@
 
   /* Impressão da foto: só ela aparece no papel */
   #areaImpressao { display: none; }
+  /* ===== Celular: cada nota vira um cartão; painel da nota em tela cheia ===== */
+  @media (max-width: 760px) {
+    body { height: auto; min-height: 100vh; overflow: auto; }
+    .topo { padding: 8px 12px; gap: 8px; min-height: 0; }
+    .topo h1 small, .status-leitura-topo { display: none; }
+    .topo .acoes { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+    .botao-topo { padding: 7px 10px; font-size: 12px; }
+    main { padding: 10px 10px 16px; display: block; }
+    .linha-resumo { flex-direction: column; align-items: stretch; }
+    .cartoes { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; min-width: 0; max-width: 100%; width: 100%; }
+    html, body { max-width: 100vw; overflow-x: hidden; }
+    .cartao-num { flex: none; }
+    #busca, #busca:focus { width: 100%; margin-left: 0; height: 36px; font-size: 14px; }
+    .painel { overflow: visible; }
+    .barra-ferramentas .linha-cima { flex-direction: column; align-items: flex-start; }
+    .legenda { display: none; }
+    .tabela-wrap { overflow: visible; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    thead { display: none; }
+    tbody tr { margin: 0 0 10px; border: 1px solid var(--cor-borda); border-radius: 10px; background: var(--cor-cartao); padding: 8px 10px 10px; overflow: hidden;
+      display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 10px; }
+    tbody tr td { grid-column: span 1; }
+    tbody td.col-id, tbody td.col-fornecedor, tbody td.col-leitura, tbody td.col-etapa, tbody td.col-obsConferencia, tbody td.col-acao, tbody td.vazio { grid-column: 1 / -1; }
+    tbody td.col-id { grid-column: 1 / 2; } tbody td.col-_sel { grid-column: 2 / 3; justify-self: end; float: none; }
+    tbody tr:nth-child(even) td, tbody tr:hover td { background: transparent; }
+    tbody tr.linha-verde { border-left: 5px solid #7dbd8c; }
+    tbody tr.linha-laranja { border-left: 5px solid #eeb05a; }
+    tbody tr.linha-vermelha { border-left: 5px solid #e5877c; }
+    tbody tr td:first-child { border-left: none !important; }
+    tbody td { border: none; padding: 3px 0 !important; text-align: left !important; min-width: 0 !important; width: auto !important; }
+    tbody td[data-rotulo]::before { content: attr(data-rotulo) ': '; color: var(--cor-texto-suave); font-size: 11.5px; font-weight: 600; }
+    tbody td.col-id { font-size: 15px; color: var(--cor-texto); }
+    tbody td.col-id::before { content: 'Nº '; }
+    tbody td.col-_sel { float: right; width: auto !important; }
+    tbody td.col-motorista, tbody td.col-osNumero:empty { display: none; }
+    tbody td.col-acao { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 8px !important; }
+    tbody td.col-acao::before { display: none; }
+    td.acao .botao-ver, td.acao .botao-ok, td.acao .botao-desfazer { width: auto; flex: 1; margin: 0; height: 36px; }
+    td.obs-conf textarea { min-height: 38px; font-size: 14px; }
+    #modalNota .modal { width: 100vw; }
+    #modalNota .modal-topo { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+    #modalNota .modal-topo .marca-icone { display: none; }
+    .nav-nota { width: 100%; justify-content: space-between; }
+    #modalNota .modal-corpo { grid-template-columns: 1fr; overflow: auto; padding: 8px; gap: 8px; }
+    #modalNota .modal-corpo { display: flex; flex-direction: column; }
+    #modalNota .modal-docs, #modalNota .modal-dados { flex: none; height: auto; overflow: visible; display: flex; flex-direction: column; gap: 8px; }
+    #modalNota .foto-area { height: 62vh; min-height: 300px; flex: none; }
+    .acoes-docs { gap: 6px; }
+    .acoes-docs .botao-sec, .acoes-docs .botao-imprimir { flex: 1 1 45%; font-size: 12.5px; }
+    .rodape-painel { flex-wrap: wrap; padding: 8px 10px; }
+    .rodape-painel .botoes { width: 100%; }
+    .rodape-painel .botoes button { flex: 1; }
+    .grade-campos { grid-template-columns: 1fr !important; }
+  }
   @media print {
     html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
     body > *:not(#areaImpressao) { display: none !important; }
@@ -1212,6 +1266,8 @@
         default:
           td = celulaDado(item, c.chave, c.quebra ? '' : 'nowrap', item[c.chave]);
       }
+      if (c.titulo && c.chave !== '_sel') td.setAttribute('data-rotulo', c.titulo);
+      td.classList.add('col-' + String(c.chave || 'acao').replace(/[^a-z0-9_]/gi, ''));
       tr.appendChild(td);
     });
     if (!item.conferido) permitirSoltarArquivo(tr, item);
