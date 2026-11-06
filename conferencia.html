@@ -374,7 +374,9 @@
   #modalNota .modal-docs { overflow: hidden; }
   #modalNota .modal-dados { overflow: auto; }
   #modalNota .foto-area { border-style: dashed; }
-  #modalNota .foto-area img { max-height: none; }
+  #modalNota .foto-area img { max-width: none; max-height: none; }
+  #modalNota .foto-area .paginas-pdf { max-height: none; overflow: visible; align-items: center; }
+  #modalNota .foto-area.zoomado .paginas-pdf { align-items: flex-start; }
   .cabeca-painel { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-bottom: 9px; border-bottom: 1px solid var(--cor-borda); }
   .cabeca-painel strong { font-size: 12.5px; }
   .rotulo-secao { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--cor-texto-suave); font-weight: 750; }
@@ -612,7 +614,7 @@
       <div class="botoes">
         <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
         <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
-        <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden>✓ Baixar e próxima</button>
+        <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden title="Dar baixa nesta nota (confirmada pelo almoxarifado)">✓ Baixar</button>
       </div>
     </div>
   </div>
@@ -2119,7 +2121,7 @@
   }
 
   // Zoom e giro do documento aberto. O giro redesenha a imagem (sai girada também na impressão).
-  const ZOOMS = [1, 1.5, 2, 3, 4];
+  const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
   let zoomDoc = 1;
   let giroDoc = 0;
   let paginasVista = []; // imagens originais do documento aberto (foto ou páginas do PDF)
@@ -2135,16 +2137,18 @@
     aplicarZoom();
   }
 
+  // 100% = a página inteira cabe na área (largura e altura); acima disso aparece a rolagem
   function aplicarZoom() {
     const area = $('fotoArea');
     const imgs = imagensVista();
-    area.classList.remove('zoomado');
-    imgs.forEach(function(img) { img.style.width = ''; });
-    if (zoomDoc > 1) {
-      const bases = imgs.map(function(img) { return img.getBoundingClientRect().width; });
-      area.classList.add('zoomado');
-      imgs.forEach(function(img, k) { img.style.width = Math.round(bases[k] * zoomDoc) + 'px'; });
-    }
+    const larg = Math.max(100, area.clientWidth - 16), alt = Math.max(100, area.clientHeight - 16);
+    area.classList.toggle('zoomado', zoomDoc > 1);
+    imgs.forEach(function(img) {
+      if (!img.naturalWidth) { img.onload = aplicarZoom; return; }
+      const cabe = Math.min(larg, alt * img.naturalWidth / img.naturalHeight);
+      img.style.width = Math.round(cabe * zoomDoc) + 'px';
+      img.style.height = 'auto';
+    });
     $('vistaZoom').textContent = Math.round(zoomDoc * 100) + '%';
     const semDoc = !paginasVista.length;
     ['vistaAjustar', 'vistaGirarEsq', 'vistaGirarDir'].forEach(function(id) { $(id).disabled = semDoc; });
@@ -2335,9 +2339,7 @@
     $('notaAnterior').disabled = i <= 0;
     $('notaProxima').disabled = i === -1 || i >= lista.length - 1;
     $('notaPosicao').textContent = i === -1 ? '' : (i + 1) + ' de ' + lista.length;
-    const baixar = $('botaoBaixarProxima');
-    baixar.hidden = !notaItem || notaItem.conferido;
-    baixar.textContent = vizinhaDaNota(1) ? '✓ Baixar e próxima' : '✓ Baixar';
+    $('botaoBaixarProxima').hidden = !notaItem || notaItem.conferido || notaItem.etapa !== 'Confirmada pelo almoxarifado';
   }
   function irParaNota(passo) {
     const alvo = vizinhaDaNota(passo);
@@ -2350,10 +2352,10 @@
     const item = notaItem;
     if (!item || item.conferido) return;
     if (notaTemAlteracoes() && !confirm('Há correções não salvas. Dar baixa sem salvar?')) return;
-    const proxima = vizinhaDaNota(1);
     if (!item.impressoConf && !confirm('A nota #' + item.id + ' ainda não foi impressa.\n\nDar baixa mesmo assim?')) return;
     alternarConferido(item, null, null, true);
-    if (proxima) { limparBlobs(); abrirNota(proxima); } else fecharNota(true);
+    $('botaoBaixarProxima').hidden = true;
+    mostrarAvisoNota('Nota #' + item.id + ' baixada ✓', true);
   }
 
   // Divergência (SC do almoxarifado ≠ SC da nota): o conferente decide
@@ -2713,6 +2715,7 @@
   $('vistaMenos').onclick = function() { mudarZoom(-1); };
   $('vistaMais').onclick = function() { mudarZoom(1); };
   $('vistaAjustar').onclick = function() { zoomDoc = 1; aplicarZoom(); };
+  window.addEventListener('resize', function() { if (!$('modalNota').hidden) aplicarZoom(); });
   $('vistaGirarEsq').onclick = function() { girarDoc(-90); };
   $('vistaGirarDir').onclick = function() { girarDoc(90); };
   $('fotoArea').ondblclick = function() { if (paginasVista.length) { zoomDoc = zoomDoc === 1 ? 2 : 1; aplicarZoom(); } };
