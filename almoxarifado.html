@@ -885,7 +885,7 @@
     botao.disabled = true;
     botao.textContent = 'Enviando...';
     try {
-      const lista = await lerArquivos(arquivos);
+      const lista = await Comum.enquadrarTodas(await lerArquivos(arquivos));
       await api('almoxAnexar', Object.assign(acesso(), { id: atual.id, linha: atual.linha, nome: nome(), tipo: $('anexoTipo').value, arquivos: lista }), 180000);
       const id = atual.id;
       delete cacheDocs[id];
@@ -930,7 +930,7 @@
     botao.disabled = true;
     botao.textContent = 'Enviando...';
     try {
-      const lista = await lerArquivos(arquivos);
+      const lista = await Comum.enquadrarTodas(await lerArquivos(arquivos));
       const r = await api('almoxEnviarNota', Object.assign(acesso(), sc, {
         nome: nome(), arquivos: lista, dataRecebimento: data, frota: frota, obs: $('nnObs').value.trim(),
         dados: { notaFiscal: $('nnNF').value.trim(), fornecedor: $('nnFornecedor').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
