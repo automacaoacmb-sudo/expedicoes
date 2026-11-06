@@ -642,7 +642,7 @@
         <div class="acoes-docs">
           <button type="button" class="botao-imprimir" id="botaoImprimirNota">🖨 Imprimir nota</button>
           <button type="button" class="botao-sec" id="botaoImprimirDoc" title="Imprime só o documento que está na tela (com o giro aplicado)">🖨 Só este documento</button>
-          <a class="botao-sec" id="linkBaixarDoc" aria-disabled="true">⬇ Baixar</a>
+          <a class="botao-sec" id="linkBaixarDoc" aria-disabled="true">⬇ Download</a>
           <button type="button" class="botao-sec" id="botaoAnexarNota">📎 Anexar à nota</button>
           <button type="button" class="botao-sec" id="botaoAnexarPedido">📎 Anexar pedido de compra</button>
           <input type="file" id="inputAnexo" accept="image/*,application/pdf" multiple hidden>
@@ -663,12 +663,12 @@
       </section>
     </div>
     <div class="rodape-painel">
+      <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden title="Dar baixa: a nota sai das pendências">✓ Baixar</button>
       <button type="button" class="botao-excluir" id="botaoExcluirNota" hidden title="Só nota lançada à mão (financeiro ou conferente), enquanto o almoxarifado não respondeu">🗑 Excluir lançamento</button>
       <div class="aviso-modal" id="notaAviso"></div>
       <div class="botoes">
         <button type="button" class="botao-sec" data-fechar="modalNota">Fechar</button>
         <button type="button" class="botao-principal" id="botaoSalvarCorrecao">Salvar correções</button>
-        <button type="button" class="botao-principal" id="botaoBaixarProxima" hidden title="Dar baixa nesta nota (confirmada pelo almoxarifado)">✓ Baixar</button>
         <button type="button" class="botao-principal" id="botaoBaixarESeguir" hidden title="Dar baixa nesta nota e abrir a próxima da lista">✓ Baixar e próxima ▶</button>
       </div>
     </div>
@@ -746,6 +746,8 @@
     { chave: null, titulo: 'Ação', alinhar: 'centro' }
   ];
 
+  // atalhos que juntam mais de uma etapa
+  const GRUPO_ETAPA = { 'Divergência': ['Divergência', 'Fazenda errada'] };
   const ETAPA_CLASSE = {
     'Nota solicitada': 'e-faltam', 'Aguardando leitura': 'e-aguardando', 'Faltam dados': 'e-faltam', 'Aguardando almoxarifado': 'e-enviada',
     'Fazenda errada': 'e-fazenda', 'Confirmada pelo almoxarifado': 'e-confirmada', 'Divergência': 'e-divergencia', 'Baixada': 'e-baixada'
@@ -945,7 +947,7 @@
 
     return dados[abaAtual]
       .filter(function(item) {
-        if (!semFiltroEtapa && filtroEtapa && abaAtual === 'pendentes' && item.etapa !== filtroEtapa) return false;
+        if (!semFiltroEtapa && filtroEtapa && abaAtual === 'pendentes' && (GRUPO_ETAPA[filtroEtapa] || [filtroEtapa]).indexOf(item.etapa) === -1) return false;
         if (!semFiltroOrigem && filtroOrigem && (item.origem || 'Expedição') !== filtroOrigem) return false;
         if (!semFiltroDuplicadas && filtroDuplicadas && !(item.duplicadaDe && item.duplicadaDe.length)) return false;
         if (!semFiltroDuplicadas && filtroUrgentes && !item.urgencia) return false;
@@ -993,7 +995,7 @@
   // Cartões do topo: números do dia; clicar filtra a lista (clicar de novo volta a todas).
   function desenharCartoes() {
     const hoje = (function() { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); })();
-    const contar = function(etapa) { return dados.pendentes.filter(function(i) { return i.etapa === etapa; }).length; };
+    const contar = function(etapa) { const g = GRUPO_ETAPA[etapa] || [etapa]; return dados.pendentes.filter(function(i) { return g.indexOf(i.etapa) !== -1; }).length; };
     const porEtapa = function(nome) { return { ativo: abaAtual === 'pendentes' && filtroEtapa === nome, liga: function() { filtroEtapa = nome; } }; };
     const cartoes = [
       Object.assign({ rotulo: 'Pendências', numero: dados.pendentes.length, dica: 'Notas esperando alguma ação', classe: '',
@@ -1001,7 +1003,7 @@
       Object.assign({ rotulo: 'Faltam dados', numero: contar('Faltam dados'), dica: 'Sem fazenda, fornecedor, NF ou valor: complete na nota', classe: 'faltam' }, porEtapa('Faltam dados')),
       Object.assign({ rotulo: 'Aguardando almoxarifado', numero: contar('Aguardando almoxarifado'), dica: 'A fazenda ainda vai confirmar o recebimento', classe: 'aviso' }, porEtapa('Aguardando almoxarifado')),
       Object.assign({ rotulo: 'Confirmadas', numero: contar('Confirmada pelo almoxarifado'), dica: 'Prontas para imprimir e dar baixa', classe: '' }, porEtapa('Confirmada pelo almoxarifado')),
-      Object.assign({ rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Abra a nota e decida (aceitar ou devolver)', classe: 'perigo' }, porEtapa('Divergência')),
+      Object.assign({ rotulo: 'Com divergência', numero: contar('Divergência'), dica: 'Divergência de SC e "não é desta fazenda": abra a nota e decida', classe: 'perigo' }, porEtapa('Divergência')),
       { rotulo: '⚑ Urgentes', numero: dados.pendentes.filter(function(i) { return i.urgencia; }).length, dica: 'O financeiro pediu prioridade', classe: 'urgente',
         ativo: abaAtual === 'pendentes' && filtroUrgentes, liga: function() { filtroUrgentes = true; } },
       { rotulo: '⚠ Possíveis duplicadas', numero: dados.pendentes.filter(function(i) { return i.duplicadaDe && i.duplicadaDe.length; }).length, dica: 'Mesmo número e mesmo fornecedor ou valor: abra a nota e use "Juntar"', classe: 'duplicada',
@@ -1377,7 +1379,7 @@
     td.appendChild(criar('span', 'chip-etapa ' + (ETAPA_CLASSE[item.etapa] || 'e-pronta'), item.etapa));
     if (item.urgencia) td.appendChild(sub('⚑ ' + item.urgencia, true));
     const a = item.almox || {};
-    if (item.etapa === 'Nota solicitada') {
+    if (item.notaSolicitada) {
       td.appendChild(sub('📎 o almoxarifado está sem a nota: anexe' + (item.obsSolicitacao ? ' (' + item.obsSolicitacao + ')' : ''), true, item.notaSolicitada));
     }
     if (a.situacao === 'Recebido') {
