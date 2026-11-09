@@ -476,8 +476,8 @@
     dados.itens.forEach(i => { contagem[situacaoDe(i)]++; });
     const abas = $('abas');
     abas.innerHTML = '';
-    [['responder', 'A responder'], ['respondida', 'Respondidas'], ['baixada', 'Baixadas']].forEach(par => {
-      if (par[0] === 'baixada' && !contagem.baixada) return;
+    [['responder', 'A responder'], ['respondida', 'Respondidas']].forEach(par => {
+      // as baixadas não aparecem para o almoxarifado (processo encerrado)
       const b = criar('button', abaAtual === par[0] ? 'ativa' : '', par[1] + ' (' + contagem[par[0]] + ')');
       b.onclick = () => { abaAtual = par[0]; mostrarLista(); };
       abas.appendChild(b);
@@ -615,7 +615,7 @@
     $('blocoAnexo').hidden = true;
     atualizarSituacao();
     const bloqueada = item.baixada;
-    ['botaoSim', 'botaoNao', 'botaoOutra', 'campoData', 'campoSc', 'campoSemSc', 'campoMotivo', 'semNota', 'campoFrota', 'campoObs', 'botaoSalvar', 'botaoHoje'].forEach(id => { $(id).disabled = bloqueada; });
+    ['botaoSim', 'botaoOutra', 'campoData', 'campoSc', 'campoSemSc', 'campoMotivo', 'semNota', 'campoFrota', 'campoObs', 'botaoSalvar', 'botaoHoje'].forEach(id => { $(id).disabled = bloqueada; });
     if (!bloqueada) atualizarSemSc('campo');
     if (bloqueada) { $('jaRespondida').hidden = false; $('jaRespondida').textContent = 'Esta nota já foi baixada pelo conferente. Para mudar algo, fale com ele.'; }
     mostrar('telaNota');
