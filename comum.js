@@ -300,43 +300,123 @@ const Comum = (() => {
    * (fotos ou PDFs; o PDF vira uma imagem por página). Cada documento começa numa página nova.
    * documento.carimbo = linhas de texto: sai como carimbo por cima da 1ª página (o arquivo original não muda).
    */
+  /*
+   * Imprime montando um PDF A4 aqui mesmo (igual à Conferência): página de resumo com título e dados, e
+   * cada documento numa folha inteira (margem ~4 mm) com a identificação pequena e o carimbo desenhado no
+   * canto de baixo. Um PDF já do tamanho A4 sai ajustado à folha, sem depender da escala guardada no
+   * navegador. Abre direto a janela de impressão (sem baixar arquivo).
+   */
+  function paraJpeg(src) {
+    if (/^data:image\/jpe?g/i.test(src)) return Promise.resolve(src);
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0);
+        res(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => rej(new Error('imagem que não abriu'));
+      img.src = src;
+    });
+  }
+  const textoPdf = t => String(t === null || t === undefined ? '' : t).replace(/…/g, '...').replace(/[–—]/g, '-').replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+  function quebrarLinhas(texto, fonte, tam, largura) {
+    const saida = [];
+    let linha = '';
+    textoPdf(texto).split(/\s+/).forEach(p => {
+      const tenta = linha ? linha + ' ' + p : p;
+      if (fonte.widthOfTextAtSize(tenta, tam) <= largura || !linha) linha = tenta; else { saida.push(linha); linha = p; }
+    });
+    if (linha) saida.push(linha);
+    return saida;
+  }
+
   async function imprimir(folhas) {
-    let area = document.getElementById('areaImpressao');
-    if (!area) { area = criar('div'); area.id = 'areaImpressao'; document.body.appendChild(area); }
-    area.innerHTML = '';
+    const PDFLib = await carregarPdfLib();
+    const doc = await PDFLib.PDFDocument.create();
+    const negrito = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const normal = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const W = 595.28, H = 841.89, M = 11;
+    const azul = PDFLib.rgb(0.11, 0.31, 0.85), cinza = PDFLib.rgb(0.27, 0.27, 0.27), preto = PDFLib.rgb(0, 0, 0);
+
     for (const f of folhas) {
-      const folha = criar('section', 'folha');
-      if (f.titulo) folha.appendChild(criar('h2', '', f.titulo));
-      if (f.linhas && f.linhas.length) {
-        const tabela = criar('table', 'tabela-impressao');
-        f.linhas.forEach(par => {
+      // página de resumo (título + tabela rótulo/valor)
+      if (f.titulo || (f.linhas && f.linhas.length)) {
+        let pag = doc.addPage([W, H]);
+        let y = H - 40;
+        if (f.titulo) { quebrarLinhas(f.titulo, negrito, 15, W - 80).forEach(l => { pag.drawText(l, { x: 40, y: y, size: 15, font: negrito, color: preto }); y -= 20; }); y -= 6; }
+        (f.linhas || []).forEach(par => {
           if (par[1] === '' || par[1] === null || par[1] === undefined) return;
-          const tr = criar('tr');
-          tr.appendChild(criar('th', '', par[0]));
-          tr.appendChild(criar('td', '', String(par[1])));
-          tabela.appendChild(tr);
+          const valor = quebrarLinhas(String(par[1]), normal, 10, W - 80 - 170);
+          const alt = Math.max(1, valor.length) * 13 + 8;
+          if (y - alt < 40) { pag = doc.addPage([W, H]); y = H - 40; }
+          pag.drawRectangle({ x: 40, y: y - alt + 4, width: 170, height: alt, color: PDFLib.rgb(0.93, 0.93, 0.93), borderColor: PDFLib.rgb(0.6, 0.6, 0.6), borderWidth: 0.6 });
+          pag.drawRectangle({ x: 210, y: y - alt + 4, width: W - 250, height: alt, borderColor: PDFLib.rgb(0.6, 0.6, 0.6), borderWidth: 0.6 });
+          quebrarLinhas(par[0], negrito, 9.5, 160).slice(0, 2).forEach((l, i) => pag.drawText(l, { x: 46, y: y - 9 - i * 12, size: 9.5, font: negrito, color: preto }));
+          valor.forEach((l, i) => pag.drawText(l, { x: 216, y: y - 9 - i * 13, size: 10, font: normal, color: preto }));
+          y -= alt;
         });
-        folha.appendChild(tabela);
       }
-      area.appendChild(folha);
-      for (const doc of f.documentos || []) {
-        const imagens = ehPdf(doc.src) ? await pdfParaImagens(doc.src) : [doc.src];
-        imagens.forEach((src, p) => {
-          // a folha inteira é do documento; embaixo, uma faixa com a identificação pequena e o carimbo à direita
-          const pagina = criar('section', 'folha-doc');
-          const img = document.createElement('img');
-          img.src = src;
-          pagina.appendChild(img);
-          const rodape = criar('div', 'rodape-doc');
-          rodape.appendChild(criar('div', 'legenda-doc', doc.legenda || ''));
-          if (p === 0 && doc.carimbo) rodape.appendChild(carimbo(doc.carimbo));
-          pagina.appendChild(rodape);
-          area.appendChild(pagina);
-        });
+      // documentos: cada página do documento numa folha inteira
+      for (const d of f.documentos || []) {
+        const imagens = ehPdf(d.src) ? await pdfParaImagens(d.src) : [d.src];
+        for (let p = 0; p < imagens.length; p++) {
+          const imagem = await doc.embedJpg(bytesDe(await paraJpeg(imagens[p])));
+          const pag = doc.addPage([W, H]);
+          const leg = textoPdf(d.legenda || '');
+          const linhasCarimbo = p === 0 && d.carimbo ? d.carimbo.filter(Boolean) : [];
+          let blocos = [], altC = 0, largC = 0;
+          if (linhasCarimbo.length) {
+            linhasCarimbo.forEach((t, i) => {
+              const obs = /^Obs\.:/.test(t);
+              const fonte = i === 0 || !obs ? negrito : normal;
+              const tam = i === 0 ? 12 : (obs ? 8 : 9.5);
+              quebrarLinhas(t, fonte, tam, 280).forEach(l => { blocos.push({ texto: l, fonte: fonte, tam: tam, esquerda: obs }); largC = Math.max(largC, fonte.widthOfTextAtSize(l, tam)); });
+            });
+            largC = Math.min(300, largC + 22);
+            altC = blocos.reduce((s, b) => s + b.tam + 3, 0) + 14;
+          }
+          const rodape = Math.max(altC, leg ? 10 : 0);
+          const areaAlt = H - 2 * M - (rodape ? rodape + 6 : 0), areaLarg = W - 2 * M;
+          const esc = Math.min(areaLarg / imagem.width, areaAlt / imagem.height);
+          const lw = imagem.width * esc, lh = imagem.height * esc;
+          pag.drawImage(imagem, { x: M + (areaLarg - lw) / 2, y: H - M - lh, width: lw, height: lh });
+          if (altC) {
+            const x = W - M - largC, y = M;
+            pag.drawRectangle({ x: x, y: y, width: largC, height: altC, borderColor: azul, borderWidth: 1.2, color: PDFLib.rgb(1, 1, 1) });
+            pag.drawRectangle({ x: x + 2.5, y: y + 2.5, width: largC - 5, height: altC - 5, borderColor: azul, borderWidth: 0.8 });
+            let cy = y + altC - 8;
+            blocos.forEach(b => {
+              cy -= b.tam;
+              const tw = b.fonte.widthOfTextAtSize(b.texto, b.tam);
+              pag.drawText(b.texto, { x: b.esquerda ? x + 10 : x + (largC - tw) / 2, y: cy, size: b.tam, font: b.fonte, color: azul });
+              cy -= 3;
+            });
+          }
+          if (leg) {
+            const largLeg = W - 2 * M - (altC ? largC + 10 : 0);
+            quebrarLinhas(leg, normal, 7, largLeg).slice(0, 3).reverse().forEach((l, i) => pag.drawText(l, { x: M, y: M + 2 + i * 9, size: 7, font: normal, color: cinza }));
+          }
+        }
       }
     }
-    await Promise.all(Array.from(area.querySelectorAll('img')).map(img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
-    window.print();
+    if (!doc.getPageCount()) return;
+    const url = URL.createObjectURL(new Blob([await doc.save()], { type: 'application/pdf' }));
+    // imprime por um quadro escondido; se o navegador não deixar, abre o PDF numa aba (com o botão de imprimir)
+    const antigo = document.getElementById('quadroImpressao');
+    if (antigo) antigo.remove();
+    const quadro = document.createElement('iframe');
+    quadro.id = 'quadroImpressao';
+    quadro.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0';
+    quadro.onload = () => setTimeout(() => {
+      try { quadro.contentWindow.focus(); quadro.contentWindow.print(); }
+      catch (e) { window.open(url, '_blank'); }
+    }, 300);
+    quadro.src = url;
+    document.body.appendChild(quadro);
   }
 
   // linhas: a 1ª é o título; uma linha que começa com "Obs.:" sai menor e alinhada à esquerda
