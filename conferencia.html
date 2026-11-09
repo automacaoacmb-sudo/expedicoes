@@ -1428,29 +1428,110 @@
   }
 
   // Monta a área de impressão: páginas = [{ src, carimbo }]; legenda no topo.
+  /*
+   * Impressão em PDF A4 montado aqui mesmo: a nota ocupa a folha (margem ~4 mm) e o carimbo é desenhado no
+   * canto de baixo. Um PDF já do tamanho A4 sai ajustado à folha, sem depender da escala que ficou guardada
+   * no navegador do conferente. Abre direto a janela de impressão (sem baixar arquivo).
+   */
+  function paraJpeg(src) {
+    if (/^data:image\/jpe?g/i.test(src)) return Promise.resolve(src);
+    return new Promise(function(res, rej) {
+      const img = new Image();
+      img.onload = function() {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0);
+        res(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = function() { rej(new Error('imagem que não abriu')); };
+      img.src = src;
+    });
+  }
+  // a fonte padrão do PDF só tem letras latinas: tira o que ela não sabe desenhar
+  function textoPdf(t) { return String(t || '').replace(/…/g, '...').replace(/[–—]/g, '-').replace(/[^\x20-\x7E\xA0-\xFF]/g, ''); }
+  function quebrarLinhas(texto, fonte, tam, largura) {
+    const saida = [];
+    let linha = '';
+    textoPdf(texto).split(/\s+/).forEach(function(p) {
+      const tenta = linha ? linha + ' ' + p : p;
+      if (fonte.widthOfTextAtSize(tenta, tam) <= largura || !linha) linha = tenta; else { saida.push(linha); linha = p; }
+    });
+    if (linha) saida.push(linha);
+    return saida;
+  }
+
   async function imprimirPaginas(legenda, paginas) {
-    const area = $('areaImpressao');
-    area.innerHTML = '';
-    await Promise.all(paginas.map(function(p, k) {
-      const caixa = criar('div', 'caixa-doc');
-      const img = document.createElement('img');
-      caixa.appendChild(img);
-      // a identificação vai só na 1ª folha, pequena, ao lado do carimbo (não rouba espaço da nota)
-      if (p.carimbo || k === 0 || p.legenda) {
-        const rodape = criar('div', 'rodape-imp');
-        rodape.appendChild(criar('div', 'legenda', p.legenda !== undefined ? p.legenda : (k === 0 ? legenda : '')));
-        if (p.carimbo) {
-          caixa.classList.add('com-carimbo');
-          const c = criar('div', 'carimbo');
-          p.carimbo.forEach(function(t, i) { c.appendChild(criar(i === 0 ? 'b' : 'div', /^Obs\.:/.test(t) ? 'obs' : '', t)); });
-          rodape.appendChild(c);
-        }
-        caixa.appendChild(rodape);
+    const PDFLib = await carregarPdfLib();
+    const doc = await PDFLib.PDFDocument.create();
+    const negrito = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const normal = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const W = 595.28, H = 841.89, M = 11; // A4 em pontos; ~4 mm de margem
+    const azul = PDFLib.rgb(0.11, 0.31, 0.85);
+    for (let k = 0; k < paginas.length; k++) {
+      const p = paginas[k];
+      const leg = textoPdf(p.legenda !== undefined ? p.legenda : (k === 0 ? legenda : ''));
+      const imagem = await doc.embedJpg(bytesDe(await paraJpeg(p.src)));
+      const pag = doc.addPage([W, H]);
+
+      // carimbo: título grande, linhas do meio centralizadas, observação à esquerda (quebrada)
+      let blocos = [], altCarimbo = 0, largCarimbo = 0;
+      if (p.carimbo && p.carimbo.length) {
+        const maxLarg = 300;
+        p.carimbo.forEach(function(t, i) {
+          const obs = /^Obs\.:/.test(t);
+          const fonte = i === 0 ? negrito : (obs ? normal : negrito);
+          const tam = i === 0 ? 12 : (obs ? 8 : 9.5);
+          quebrarLinhas(t, fonte, tam, maxLarg - 20).forEach(function(l) {
+            blocos.push({ texto: l, fonte: fonte, tam: tam, esquerda: obs });
+            largCarimbo = Math.max(largCarimbo, fonte.widthOfTextAtSize(l, tam));
+          });
+        });
+        largCarimbo = Math.min(maxLarg, largCarimbo + 22);
+        altCarimbo = blocos.reduce(function(s, b) { return s + b.tam + 3; }, 0) + 14;
       }
-      area.appendChild(caixa);
-      return new Promise(function(r) { img.onload = img.onerror = r; img.src = p.src; });
-    }));
-    window.print();
+      const rodape = Math.max(altCarimbo, leg ? 10 : 0);
+      const areaAlt = H - 2 * M - (rodape ? rodape + 6 : 0);
+      const areaLarg = W - 2 * M;
+      const esc = Math.min(areaLarg / imagem.width, areaAlt / imagem.height);
+      const lw = imagem.width * esc, lh = imagem.height * esc;
+      pag.drawImage(imagem, { x: M + (areaLarg - lw) / 2, y: H - M - lh, width: lw, height: lh });
+
+      if (altCarimbo) {
+        const x = W - M - largCarimbo, y = M;
+        pag.drawRectangle({ x: x, y: y, width: largCarimbo, height: altCarimbo, borderColor: azul, borderWidth: 1.2, color: PDFLib.rgb(1, 1, 1) });
+        pag.drawRectangle({ x: x + 2.5, y: y + 2.5, width: largCarimbo - 5, height: altCarimbo - 5, borderColor: azul, borderWidth: 0.8 });
+        let cy = y + altCarimbo - 8;
+        blocos.forEach(function(b) {
+          cy -= b.tam;
+          const tw = b.fonte.widthOfTextAtSize(b.texto, b.tam);
+          pag.drawText(b.texto, { x: b.esquerda ? x + 10 : x + (largCarimbo - tw) / 2, y: cy, size: b.tam, font: b.fonte, color: azul });
+          cy -= 3;
+        });
+      }
+      if (leg) {
+        const largLeg = W - 2 * M - (altCarimbo ? largCarimbo + 10 : 0);
+        quebrarLinhas(leg, normal, 7, largLeg).slice(0, 3).reverse().forEach(function(l, i) {
+          pag.drawText(l, { x: M, y: M + 2 + i * 9, size: 7, font: normal, color: PDFLib.rgb(0.27, 0.27, 0.27) });
+        });
+      }
+    }
+    const url = URL.createObjectURL(new Blob([await doc.save()], { type: 'application/pdf' }));
+    // imprime por um quadro escondido; se o navegador não deixar, abre o PDF numa aba (com o botão de imprimir)
+    const antigo = document.getElementById('quadroImpressao');
+    if (antigo) antigo.remove();
+    const quadro = document.createElement('iframe');
+    quadro.id = 'quadroImpressao';
+    quadro.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0';
+    quadro.onload = function() {
+      setTimeout(function() {
+        try { quadro.contentWindow.focus(); quadro.contentWindow.print(); }
+        catch (e) { window.open(url, '_blank'); }
+      }, 300);
+    };
+    quadro.src = url;
+    document.body.appendChild(quadro);
   }
 
   function registrarImpressao(item) {
