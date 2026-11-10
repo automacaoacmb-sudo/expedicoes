@@ -272,6 +272,74 @@ const Comum = (() => {
     });
   }
 
+
+  /**
+   * "Modo documento" (como app de digitalização, sem IA): estima a iluminação da foto (sombra, fundo
+   * amarelado), divide por ela para o papel ficar branco e reforça o contraste do texto. Sai em tons de
+   * cinza. Só para foto: PDF e o que não é imagem voltam como vieram.
+   */
+  function documentar(dataUrl) {
+    if (!/^data:image\//.test(dataUrl || '')) return Promise.resolve(dataUrl);
+    return new Promise(function(resolve) {
+      const img = new Image();
+      img.onerror = function() { resolve(dataUrl); };
+      img.onload = function() {
+        try {
+          const W = img.naturalWidth, H = img.naturalHeight;
+          const c = document.createElement('canvas'); c.width = W; c.height = H;
+          const g = c.getContext('2d');
+          g.drawImage(img, 0, 0);
+          const dados = g.getImageData(0, 0, W, H), px = dados.data;
+          // 1) iluminação: versão pequena da foto, sem o texto (máximo local) e borrada
+          const sw = Math.max(16, Math.round(W / 24)), sh = Math.max(16, Math.round(H / 24));
+          const pc = document.createElement('canvas'); pc.width = sw; pc.height = sh;
+          const pg = pc.getContext('2d');
+          pg.drawImage(img, 0, 0, sw, sh);
+          const pd = pg.getImageData(0, 0, sw, sh).data;
+          let fundo = new Float32Array(sw * sh);
+          for (let i = 0; i < sw * sh; i++) fundo[i] = 0.299 * pd[i * 4] + 0.587 * pd[i * 4 + 1] + 0.114 * pd[i * 4 + 2];
+          const filtrar = function(src, raio, maximo) {
+            const out = new Float32Array(sw * sh);
+            for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+              let m = maximo ? 0 : 0, n = 0;
+              for (let dy = -raio; dy <= raio; dy++) for (let dx = -raio; dx <= raio; dx++) {
+                const xx = Math.min(sw - 1, Math.max(0, x + dx)), yy = Math.min(sh - 1, Math.max(0, y + dy));
+                const v = src[yy * sw + xx];
+                if (maximo) { if (v > m) m = v; } else { m += v; n++; }
+              }
+              out[y * sw + x] = maximo ? m : m / n;
+            }
+            return out;
+          };
+          fundo = filtrar(filtrar(filtrar(fundo, 2, true), 3, false), 2, false);
+          // 2) cada ponto: cinza / iluminação, depois curva de contraste (papel branco, texto escuro)
+          for (let y = 0; y < H; y++) {
+            const fy = Math.min(sh - 1.001, Math.max(0, (y + 0.5) * sh / H - 0.5)), y0 = fy | 0, ty = fy - y0;
+            for (let x = 0; x < W; x++) {
+              const fx = Math.min(sw - 1.001, Math.max(0, (x + 0.5) * sw / W - 0.5)), x0 = fx | 0, tx = fx - x0;
+              const a0 = y0 * sw + x0, a1 = a0 + sw; // interpolação: a iluminação muda suave, sem blocos
+              const b = Math.max(30, (fundo[a0] * (1 - tx) + fundo[a0 + 1] * tx) * (1 - ty) + (fundo[a1] * (1 - tx) + fundo[a1 + 1] * tx) * ty);
+              const i = (y * W + x) * 4;
+              const cinza = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+              let v = cinza * 255 / b;
+              v = (v - 95) * 255 / (225 - 95);
+              v = v < 0 ? 0 : v > 255 ? 255 : v;
+              px[i] = px[i + 1] = px[i + 2] = v;
+            }
+          }
+          g.putImageData(dados, 0, 0);
+          resolve(c.toDataURL('image/jpeg', 0.8));
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.src = dataUrl;
+    });
+  }
+  async function documentarTodas(lista) {
+    const saida = [];
+    for (const d of lista || []) saida.push(await documentar(d));
+    return saida;
+  }
+
   // fotos de uma lista (dataUrls): cada uma passa pelo enquadrar, uma de cada vez
   async function enquadrarTodas(lista) {
     const saida = [];
@@ -477,5 +545,5 @@ const Comum = (() => {
     }`;
   document.head.appendChild(estilo);
 
-  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo, separarNotasPdf, enquadrar, enquadrarTodas };
+  return { lsGet, lsSet, criar, moeda, hojeLocal, api, lerArquivos, ehPdf, urlDeDados, pdfParaImagens, imprimir, obsCarimbo, lerNfDoArquivo, separarNotasPdf, enquadrar, enquadrarTodas, documentar, documentarTodas };
 })();
