@@ -740,7 +740,7 @@ async function adicionarFotos(arquivos) {
   const tinhaFoto = fotos.length > 0;
   for (const arq of arquivos) {
     if (fotos.length >= CONFIG.LIMITE_FOTOS) { toast('No máximo ' + CONFIG.LIMITE_FOTOS + ' fotos por lançamento.'); break; }
-    try { fotos.push(await Comum.enquadrar(await comprimir(arq))); }
+    try { fotos.push(await Comum.documentar(await Comum.enquadrar(await comprimir(arq)))); }
     catch (e) { toast('Não consegui abrir essa imagem.', true); }
   }
   renderMiniaturas();
@@ -1103,7 +1103,7 @@ $('#completarGaleria').onclick = () => $('#completarInputGaleria').click();
     ev.target.value = '';
     for (const arq of arquivos) {
       if (completarFotos.length >= CONFIG.LIMITE_FOTOS) break;
-      try { completarFotos.push(await Comum.enquadrar(await comprimir(arq))); } catch (e) { toast('Não consegui abrir essa imagem.', true); }
+      try { completarFotos.push(await Comum.documentar(await Comum.enquadrar(await comprimir(arq)))); } catch (e) { toast('Não consegui abrir essa imagem.', true); }
     }
     desenharFotosCompletar();
   });
