@@ -949,8 +949,9 @@
       .filter(function(item) {
         if (!semFiltroEtapa && filtroEtapa && abaAtual === 'pendentes' && (GRUPO_ETAPA[filtroEtapa] || [filtroEtapa]).indexOf(item.etapa) === -1) return false;
         if (!semFiltroOrigem && filtroOrigem && (item.origem || 'Expedição') !== filtroOrigem) return false;
-        if (!semFiltroDuplicadas && filtroDuplicadas && !(item.duplicadaDe && item.duplicadaDe.length)) return false;
-        if (!semFiltroDuplicadas && filtroUrgentes && !item.urgencia) return false;
+        // urgentes e duplicadas só existem nas pendências
+        if (!semFiltroDuplicadas && abaAtual === 'pendentes' && filtroDuplicadas && !(item.duplicadaDe && item.duplicadaDe.length)) return false;
+        if (!semFiltroDuplicadas && abaAtual === 'pendentes' && filtroUrgentes && !item.urgencia) return false;
         for (let i = 0; i < ativos.length; i++) {
           if (normalizar(textoDaColuna(item, ativos[i][0])).indexOf(ativos[i][1]) === -1) return false;
         }
@@ -1691,6 +1692,7 @@
 
   function trocarAba(aba) {
     abaAtual = aba;
+    if (aba === 'resolvidas') { filtroEtapa = ''; filtroUrgentes = false; filtroDuplicadas = false; } // Baixadas mostra tudo
     desenhar();
   }
 
