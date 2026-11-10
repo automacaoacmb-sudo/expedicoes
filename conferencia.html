@@ -638,6 +638,7 @@
           <button type="button" class="botao-sec" id="vistaAjustar" title="Voltar ao tamanho da tela">Ajustar</button>
           <button type="button" class="botao-sec" id="vistaGirarEsq" title="Girar para a esquerda">⟲ Girar</button>
           <button type="button" class="botao-sec" id="vistaGirarDir" title="Girar para a direita">Girar ⟳</button>
+          <button type="button" class="botao-sec" id="vistaOriginal" title="As fotos aparecem e imprimem tratadas (modo documento). Clique para ver como chegaram.">Ver original</button>
         </div>
         <div class="acoes-docs">
           <button type="button" class="botao-imprimir" id="botaoImprimirNota">🖨 Imprimir nota</button>
@@ -1562,14 +1563,90 @@
     } finally { precarregando = false; }
   }
 
+
+  /**
+   * "Modo documento" (como app de digitalização, sem IA): estima a iluminação da foto (sombra, fundo
+   * amarelado), divide por ela para o papel ficar branco e reforça o contraste do texto. Sai em tons de
+   * cinza. Só para foto: PDF e o que não é imagem voltam como vieram.
+   */
+  function documentar(dataUrl) {
+    if (!/^data:image\//.test(dataUrl || '')) return Promise.resolve(dataUrl);
+    return new Promise(function(resolve) {
+      const img = new Image();
+      img.onerror = function() { resolve(dataUrl); };
+      img.onload = function() {
+        try {
+          const W = img.naturalWidth, H = img.naturalHeight;
+          const c = document.createElement('canvas'); c.width = W; c.height = H;
+          const g = c.getContext('2d');
+          g.drawImage(img, 0, 0);
+          const dados = g.getImageData(0, 0, W, H), px = dados.data;
+          // 1) iluminação: versão pequena da foto, sem o texto (máximo local) e borrada
+          const sw = Math.max(16, Math.round(W / 24)), sh = Math.max(16, Math.round(H / 24));
+          const pc = document.createElement('canvas'); pc.width = sw; pc.height = sh;
+          const pg = pc.getContext('2d');
+          pg.drawImage(img, 0, 0, sw, sh);
+          const pd = pg.getImageData(0, 0, sw, sh).data;
+          let fundo = new Float32Array(sw * sh);
+          for (let i = 0; i < sw * sh; i++) fundo[i] = 0.299 * pd[i * 4] + 0.587 * pd[i * 4 + 1] + 0.114 * pd[i * 4 + 2];
+          const filtrar = function(src, raio, maximo) {
+            const out = new Float32Array(sw * sh);
+            for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+              let m = maximo ? 0 : 0, n = 0;
+              for (let dy = -raio; dy <= raio; dy++) for (let dx = -raio; dx <= raio; dx++) {
+                const xx = Math.min(sw - 1, Math.max(0, x + dx)), yy = Math.min(sh - 1, Math.max(0, y + dy));
+                const v = src[yy * sw + xx];
+                if (maximo) { if (v > m) m = v; } else { m += v; n++; }
+              }
+              out[y * sw + x] = maximo ? m : m / n;
+            }
+            return out;
+          };
+          fundo = filtrar(filtrar(filtrar(fundo, 2, true), 3, false), 2, false);
+          // 2) cada ponto: cinza / iluminação, depois curva de contraste (papel branco, texto escuro)
+          for (let y = 0; y < H; y++) {
+            const fy = Math.min(sh - 1.001, Math.max(0, (y + 0.5) * sh / H - 0.5)), y0 = fy | 0, ty = fy - y0;
+            for (let x = 0; x < W; x++) {
+              const fx = Math.min(sw - 1.001, Math.max(0, (x + 0.5) * sw / W - 0.5)), x0 = fx | 0, tx = fx - x0;
+              const a0 = y0 * sw + x0, a1 = a0 + sw; // interpolação: a iluminação muda suave, sem blocos
+              const b = Math.max(30, (fundo[a0] * (1 - tx) + fundo[a0 + 1] * tx) * (1 - ty) + (fundo[a1] * (1 - tx) + fundo[a1 + 1] * tx) * ty);
+              const i = (y * W + x) * 4;
+              const cinza = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+              let v = cinza * 255 / b;
+              v = (v - 95) * 255 / (225 - 95);
+              v = v < 0 ? 0 : v > 255 ? 255 : v;
+              px[i] = px[i + 1] = px[i + 2] = v;
+            }
+          }
+          g.putImageData(dados, 0, 0);
+          resolve(c.toDataURL('image/jpeg', 0.8));
+        } catch (e) { resolve(dataUrl); }
+      };
+      img.src = dataUrl;
+    });
+  }
+  async function documentarTodas(lista) {
+    const saida = [];
+    for (const d of lista || []) saida.push(await documentar(d));
+    return saida;
+  }
+
+  let verOriginal = false;
+  // guarda no cache a versão tratada (fotos) e a original
+  async function guardarDocs(item, r) {
+    const entrada = { nota: await documentarTodas(r.nota), pedido: await documentarTodas(r.pedido), orig: { nota: r.nota, pedido: r.pedido } };
+    cacheDocs[chaveItem(item)] = entrada;
+    return entrada;
+  }
+  const docsDaVista = function(entrada) { return verOriginal && entrada.orig ? entrada.orig : entrada; };
+
   function buscarDocs(item) {
     if (cacheDocs[chaveItem(item)]) return Promise.resolve(cacheDocs[chaveItem(item)]);
     return new Promise(function(res, rej) {
       google.script.run
         .withSuccessHandler(function(r) {
           if (!r.ok) { rej(new Error(r.mensagem)); return; }
-          cacheDocs[chaveItem(item)] = { nota: r.nota, pedido: r.pedido };
-          res(cacheDocs[chaveItem(item)]);
+          guardarDocs(item, r).then(res, rej);
         })
         .withFailureHandler(rej)
         .getDocumentosLancamento(item.id, item.linha);
@@ -2192,7 +2269,9 @@
     desativarBaixar();
     atualizarAbasDocs();
     if (!item.numFotos && !item.numPedido) { mostrarDocs(); return; }
-    if (cacheDocs[chaveItem(item)]) { docsAtuais = cacheDocs[chaveItem(item)]; mostrarDocs(); precarregarProximos(item); return; }
+    verOriginal = false;
+    $('vistaOriginal').textContent = 'Ver original';
+    if (cacheDocs[chaveItem(item)]) { docsAtuais = docsDaVista(cacheDocs[chaveItem(item)]); mostrarDocs(); precarregarProximos(item); return; }
     area.textContent = 'Carregando documentos...';
     google.script.run
       .withSuccessHandler(function(r) {
@@ -2200,10 +2279,12 @@
         if (!r.ok) { area.textContent = r.mensagem; return; }
         const chaves = Object.keys(cacheDocs);
         if (chaves.length >= 5) delete cacheDocs[chaves[0]];
-        cacheDocs[chaveItem(item)] = { nota: r.nota, pedido: r.pedido };
-        docsAtuais = cacheDocs[chaveItem(item)];
-        mostrarDocs();
-        precarregarProximos(item);
+        guardarDocs(item, r).then(function(entrada) {
+          if (notaItem !== item) return;
+          docsAtuais = docsDaVista(entrada);
+          mostrarDocs();
+          precarregarProximos(item);
+        });
       })
       .withFailureHandler(function(erro) { if (notaItem === item) area.textContent = 'Erro ao carregar: ' + erro.message; })
       .getDocumentosLancamento(item.id, item.linha);
@@ -2824,6 +2905,14 @@
   $('vistaMenos').onclick = function() { mudarZoom(-1); };
   $('vistaMais').onclick = function() { mudarZoom(1); };
   $('vistaAjustar').onclick = function() { zoomDoc = 1; aplicarZoom(); };
+  $('vistaOriginal').onclick = function() {
+    const entrada = notaItem && cacheDocs[chaveItem(notaItem)];
+    if (!entrada) return;
+    verOriginal = !verOriginal;
+    $('vistaOriginal').textContent = verOriginal ? 'Ver tratado' : 'Ver original';
+    docsAtuais = docsDaVista(entrada);
+    mostrarDocs();
+  };
   window.addEventListener('resize', function() { if (!$('modalNota').hidden) aplicarZoom(); });
   $('vistaGirarEsq').onclick = function() { girarDoc(-90); };
   $('vistaGirarDir').onclick = function() { girarDoc(90); };
