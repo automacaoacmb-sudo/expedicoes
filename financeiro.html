@@ -759,7 +759,7 @@
   async function unidadesDosArquivos(arquivos) {
     const unidades = [];
     for (const arq of arquivos) {
-      const lista = await lerArquivos([arq]);
+      const lista = await Comum.documentarTodas(await lerArquivos([arq]));
       const partes = await separarNotasPdf(lista[0]);
       partes.forEach((p, k) => unidades.push({
         nome: arq.name + (partes.length > 1 ? ' (nota ' + (k + 1) + ' de ' + partes.length + ')' : ''),
@@ -847,7 +847,7 @@
     msg.className = 'aviso-modal';
     msg.textContent = 'Enviando...';
     try {
-      const lista = await lerArquivos(arquivos);
+      const lista = await Comum.documentarTodas(await lerArquivos(arquivos));
       const r = await api('finEnviarNota', {
         token: chave, nome: nome(), arquivos: lista, textoNota: unidades.map(u => u.texto).join(' ').slice(0, 40000),
         dados: { fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
