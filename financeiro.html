@@ -409,6 +409,8 @@
         ativo: abaFin === 'pendentes' && etapa === 'Aguardando almoxarifado', acao: porEtapa('Aguardando almoxarifado') },
       { rotulo: 'Confirmadas', numero: pend.filter(i => i.etapa === 'Confirmada pelo almoxarifado').length,
         ativo: abaFin === 'pendentes' && etapa === 'Confirmada pelo almoxarifado', acao: porEtapa('Confirmada pelo almoxarifado') },
+      { rotulo: '⚑ Urgentes', numero: pend.filter(i => i.urgencia).length, classe: 'urgente', semBolha: true,
+        ativo: abaFin === 'pendentes' && filtroUrgentes, acao: () => { filtroUrgentes = true; } },
       { rotulo: 'Baixadas', numero: itens.length - pend.length, classe: 'azul', ativo: abaFin === 'baixadas', acao: () => { abaFin = 'baixadas'; } }
     ];
     const caixa = $('cartoes');
