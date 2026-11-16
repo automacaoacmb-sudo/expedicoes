@@ -107,6 +107,9 @@
   .botao-excluir { border: 1px solid #f0c9c3; background: transparent; color: #b4453a; border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
   .botao-excluir:hover { background: #fdeceb; }
   .botao-excluir:disabled { opacity: 0.6; }
+
+  .falha-envio { background: #fde8e5; color: #9b2c22; border: 2px solid #e5877c; border-radius: 10px; padding: 12px 14px; font-weight: 800; font-size: 14.5px; }
+  .falha-envio small { display: block; font-weight: 600; font-size: 12.5px; margin-top: 4px; }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -276,6 +279,7 @@
         <div class="campo"><label for="anexoValor">Valor (R$)</label><input type="text" id="anexoValor" inputmode="decimal" autocomplete="off"></div>
         <div class="campo largo"><label for="anexoObs">O que você precisa</label><textarea id="anexoObs" rows="2" placeholder="Ex.: confirmar se chegou na fazenda antes do pagamento"></textarea></div>
       </div>
+      <div class="falha-envio" id="anexoFalha" hidden></div>
       <div class="aviso-modal" id="anexoAviso"></div>
       <div class="botoes">
         <button class="botao" id="botaoEnviarAnexo">Enviar para o conferente</button>
@@ -746,6 +750,8 @@
     $('anexoAviso').textContent = '';
     $('anexoAviso').className = 'aviso-modal';
     $('botaoEnviarAnexo').disabled = false;
+    reenviar = null;
+    mostrarFalha('');
     $('modalAnexar').hidden = false;
   }
 
@@ -796,7 +802,8 @@
       lidos = lidos.filter(x => !x.iguais.length);
       if (!lidos.length) { msg.textContent = 'Nada a enviar: todas já estavam na lista.'; return; }
     }
-    const criadas = [], falhas = [], avisos = [];
+    const criadas = [], falhas = [], avisos = [], falhadas = [];
+    mostrarFalha('');
     botao.disabled = true;
     for (let i = 0; i < lidos.length; i++) {
       msg.className = 'aviso-modal';
@@ -806,12 +813,15 @@
           dados: Object.assign({}, dados, { notaFiscal: lidos[i].numero }) }, 180000);
         criadas.push('#' + r.id + textoResultadoFazenda(r));
         if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso);
-      } catch (e) { falhas.push(lidos[i].nome + ' (' + e.message + ')'); }
+      } catch (e) { falhas.push(lidos[i].nome + ' (' + e.message + ')'); falhadas.push(lidos[i]); }
     }
     botao.disabled = false;
     if (falhas.length) {
       msg.className = 'aviso-modal erro';
       msg.textContent = criadas.length + ' nota(s) enviada(s)' + (criadas.length ? ' (' + criadas.join(', ') + ')' : '') + '. Não foram: ' + falhas.join('; ');
+      mostrarFalha('❌ ' + falhas.length + ' NOTA(S) NÃO FORAM ENVIADAS', 'Clique em "Reenviar as que falharam": vão só essas, sem subir os arquivos de novo.');
+      reenviar = falhadas;
+      $('botaoEnviarAnexo').textContent = '↻ Reenviar as que falharam (' + falhadas.length + ')';
     } else {
       $('modalAnexar').hidden = true;
       aviso(criadas.length + ' notas enviadas ao conferente e ao almoxarifado (' + criadas.join(', ') + ').' + (avisos.length ? ' ' + avisos.join(' ') : ''), !avisos.length);
@@ -819,7 +829,21 @@
     if (criadas.length) carregar();
   }
 
+  // faixa vermelha no alto da janela quando algo não foi enviado
+  let reenviar = null;
+  function mostrarFalha(titulo, detalhe) {
+    const f = $('anexoFalha');
+    f.hidden = !titulo;
+    f.innerHTML = '';
+    if (!titulo) return;
+    f.appendChild(document.createTextNode(titulo));
+    if (detalhe) f.appendChild(criar('small', '', detalhe));
+    f.scrollIntoView({ block: 'nearest' });
+  }
+
   async function enviarAnexo() {
+    if (reenviar && reenviar.length) { const r = reenviar; reenviar = null; enviarEmLote(null, r); return; }
+    mostrarFalha('');
     const arquivos = $('anexoArquivos').files;
     const msg = $('anexoAviso');
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
@@ -860,6 +884,8 @@
     } catch (e) {
       msg.className = 'aviso-modal erro';
       msg.textContent = e.message;
+      mostrarFalha('❌ A NOTA NÃO FOI ENVIADA', e.message + ' O arquivo e os dados continuam aqui: é só clicar em "Tentar enviar de novo".');
+      $('botaoEnviarAnexo').textContent = '↻ Tentar enviar de novo';
     } finally {
       botao.disabled = false;
     }
