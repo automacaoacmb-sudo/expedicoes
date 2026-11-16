@@ -18,7 +18,35 @@ const Comum = (() => {
   const hojeLocal = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 
   /** POST de texto JSON (sem pré-verificação CORS). Erro do servidor: e.servidor; sem conexão: e.rede. */
+  // aviso discreto no alto da tela enquanto tenta de novo
+  function avisoTentativa(n) {
+    let a = document.getElementById('avisoTentativa');
+    if (!n) { if (a) a.remove(); return; }
+    if (!a) {
+      a = criar('div');
+      a.id = 'avisoTentativa';
+      a.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:10000;background:#fff4d6;color:#8a5a00;border:1px solid #e4c98a;border-radius:8px;padding:8px 14px;font:600 13px Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.15)';
+      document.body.appendChild(a);
+    }
+    a.textContent = '⏳ Servidor ocupado, tentando de novo (' + n + ' de 3)...';
+  }
+
+  // servidor ocupado (fila cheia): nada foi gravado, então tenta de novo sozinho até 3 vezes
   async function api(acao, dados, timeout) {
+    for (let tentativa = 0; ; tentativa++) {
+      try {
+        const r = await apiUmaVez(acao, dados, timeout);
+        avisoTentativa(0);
+        return r;
+      } catch (e) {
+        if (e.codigo !== 'ocupado' || tentativa >= 3) { avisoTentativa(0); throw e; }
+        avisoTentativa(tentativa + 1);
+        await new Promise(r => setTimeout(r, [4000, 8000, 15000][tentativa]));
+      }
+    }
+  }
+
+  async function apiUmaVez(acao, dados, timeout) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeout || 90000);
     try {
