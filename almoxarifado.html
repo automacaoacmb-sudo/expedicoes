@@ -134,6 +134,7 @@
   .toggle button.ativo.outra { background: var(--cor-aviso); border-color: var(--cor-aviso); color: #fff; }
   .dica { font-size: 12.5px; color: var(--cor-texto-suave); margin: 6px 0 0; }
   .erro-form { color: var(--cor-erro); font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+  .erro-form.falha { background: #fde8e5; color: #9b2c22; border: 2px solid #e5877c; border-radius: 10px; padding: 12px 14px; font-size: 14.5px; }
   .respondida { background: var(--cor-ok-fundo); color: var(--cor-primaria-escura); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 14px; }
   .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   #carregando { text-align: center; color: var(--cor-texto-suave); padding: 40px 0; }
@@ -806,8 +807,16 @@
 
   function erroEm(caixa, msg, campo) {
     $(caixa).textContent = msg;
+    $(caixa).classList.remove('falha');
     $(caixa).hidden = false;
     if (campo) $(campo).focus();
+  }
+  // falha de envio ao servidor: faixa vermelha grande (o arquivo continua escolhido; é só enviar de novo)
+  function falhaEnvio(caixa, e) {
+    $(caixa).textContent = '❌ NÃO FOI ENVIADO. ' + e.message + ' O arquivo continua escolhido: é só enviar de novo.';
+    $(caixa).classList.add('falha');
+    $(caixa).hidden = false;
+    $(caixa).scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   /* ---------- SC: número, ou "Veio sem SC" com o motivo (mínimo 10 letras) ---------- */
@@ -895,7 +904,7 @@
       else mostrarLista();
       aviso('Documento enviado ✓', true);
     } catch (e) {
-      erroEm('erroAnexo', e.message);
+      falhaEnvio('erroAnexo', e);
     } finally {
       botao.disabled = false;
       botao.textContent = 'Enviar documento';
@@ -940,7 +949,7 @@
       mostrarLista();
       aviso('Recebimento registrado ✓ Está em "Respondidas". Fornecedor, número e valor são lidos da foto.' + (r.aviso ? ' ' + r.aviso : ''), true);
     } catch (e) {
-      erroEm('erroNovaNota', e.message);
+      falhaEnvio('erroNovaNota', e);
     } finally {
       botao.disabled = false;
       botao.textContent = 'Confirmar recebimento';
@@ -976,7 +985,7 @@
       mostrarLista();
       aviso('Pedido enviado ✓ O conferente vai anexar a nota. Ela aparece em "Respondidas".', true);
     } catch (e) {
-      erroEm('erroSolicitar', e.message);
+      falhaEnvio('erroSolicitar', e);
     } finally {
       botao.disabled = false;
       botao.textContent = 'Pedir a nota ao conferente';
