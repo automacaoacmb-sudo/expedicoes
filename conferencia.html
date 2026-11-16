@@ -16,7 +16,21 @@
     else chave = localStorage.getItem('exp_conf_chave') || '';
   } catch (e) { /* armazenamento bloqueado: vale só o link */ }
 
-  function chamar(fn, args, ok, erro) {
+  // servidor ocupado (fila cheia): nada foi gravado, então tenta de novo sozinho até 3 vezes
+  function avisoTentativa(n) {
+    var a = document.getElementById('avisoTentativa');
+    if (!n) { if (a) a.remove(); return; }
+    if (!a) {
+      a = document.createElement('div');
+      a.id = 'avisoTentativa';
+      a.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:10000;background:#fff4d6;color:#8a5a00;border:1px solid #e4c98a;border-radius:8px;padding:8px 14px;font:600 13px Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.15)';
+      document.body.appendChild(a);
+    }
+    a.textContent = '⏳ Servidor ocupado, tentando de novo (' + n + ' de 3)...';
+  }
+
+  function chamar(fn, args, ok, erro, tentativa) {
+    tentativa = tentativa || 0;
     var ctrl = new AbortController();
     var t = setTimeout(function () { ctrl.abort(); }, 300000);
     fetch(API, {
@@ -25,6 +39,12 @@
       body: JSON.stringify({ acao: 'conf', token: chave, fn: fn, args: args })
     }).then(function (r) { return r.json(); }).then(function (j) {
       clearTimeout(t);
+      if (!j.ok && j.codigo === 'ocupado' && tentativa < 3) {
+        avisoTentativa(tentativa + 1);
+        setTimeout(function () { chamar(fn, args, ok, erro, tentativa + 1); }, [4000, 8000, 15000][tentativa]);
+        return;
+      }
+      avisoTentativa(0);
       if (j.ok) { if (ok) ok(j.dados); }
       else if (erro) erro(new Error(j.erro || 'Erro no servidor.'));
     }, function () {
@@ -382,6 +402,8 @@
   .rotulo-secao { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--cor-texto-suave); font-weight: 750; }
   .rodape-painel { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px; background: var(--cor-cartao); border-top: 1px solid var(--cor-borda); }
   .rodape-painel .botoes { display: flex; gap: 8px; }
+  .falha-envio { background: #fde8e5; color: #9b2c22; border: 2px solid #e5877c; border-radius: 10px; padding: 12px 14px; font-weight: 800; font-size: 14px; }
+  .falha-envio small { display: block; font-weight: 600; font-size: 12.5px; margin-top: 4px; }
   .lista-envio { max-height: 280px; overflow: auto; border: 1px solid var(--cor-borda); border-radius: 8px; padding: 6px; }
   .lista-envio table { width: 100%; font-size: 12px; }
   .lista-envio th { position: static; padding: 4px 6px; font-size: 11px; }
@@ -695,6 +717,7 @@
         <div class="campo-modal largo"><label for="novaFornecedor">Fornecedor</label><input type="text" id="novaFornecedor" autocomplete="off"></div>
         <div class="campo-modal largo"><label for="novaObs">Observação</label><textarea id="novaObs" rows="2"></textarea></div>
       </div>
+      <div class="falha-envio" id="novaFalha" hidden></div>
       <div class="aviso-repetida" id="novaRepetida" hidden></div>
       <div class="lista-envio" id="novaLista" hidden>
         <table><thead><tr><th></th><th>Arquivo / nota</th><th>NF</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="novaListaCorpo"></tbody></table>
@@ -2728,6 +2751,15 @@
   }
 
   let preparadas = null; // notas separadas e mostradas na lista, esperando o "Registrar marcadas"
+  function mostrarFalhaNova(titulo, detalhe) {
+    const f = $('novaFalha');
+    f.hidden = !titulo;
+    f.innerHTML = '';
+    if (!titulo) return;
+    f.appendChild(document.createTextNode(titulo));
+    f.appendChild(criar('small', '', (detalhe || '') + ' O arquivo e os dados continuam aqui: é só clicar de novo.'));
+    f.scrollIntoView({ block: 'nearest' });
+  }
   function valorDoTexto(t) {
     const m = String(t || '').match(/VALOR TOTAL DA NOTA\D{0,40}?([\d.]{1,12},\d{2})/i) || String(t || '').match(/Valor L[íi]quido da NFS-?e\D{0,20}?([\d.]{1,12},\d{2})/i);
     return m ? m[1] : '';
@@ -2763,7 +2795,10 @@
   async function criarNotasEmLote() {
     const botao = $('botaoCriarNota');
     const aviso = $('novaAviso');
-    const lidos = (preparadas || []).filter(function(x) { return x.marcada && !x.situacao; });
+    const soFalhas = (preparadas || []).some(function(x) { return x.ultimaFalha; });
+    const lidos = (preparadas || []).filter(function(x) { return x.marcada && !x.situacao && (!soFalhas || x.ultimaFalha); });
+    (preparadas || []).forEach(function(x) { delete x.ultimaFalha; });
+    mostrarFalhaNova('');
     if (!lidos.length) return;
     const base = { origem: $('novaOrigem').value, fazenda: $('novaFazenda').value, obs: $('novaObs').value.trim(), notaFiscal: '', fornecedor: '', valor: '' };
     let criadas = 0, falhas = 0;
@@ -2781,6 +2816,19 @@
     }
     (preparadas || []).forEach(function(x) { if (!x.situacao) { x.situacao = '⏭ não enviada'; x.classe = 'pula'; } });
     desenharListaEnvio();
+    if (falhas) {
+      // as que deram erro voltam marcadas: um clique reenvia só elas, sem escolher os arquivos de novo
+      (preparadas || []).forEach(function(x) { if (x.classe === 'erro') { x.situacao = ''; x.classe = ''; x.marcada = true; x.ultimaFalha = true; } });
+      desenharListaEnvio();
+      mostrarFalhaNova('❌ ' + falhas + ' NOTA(S) NÃO FORAM REGISTRADAS', 'Elas continuam marcadas na lista: clique em "Reenviar as que falharam".');
+      botao.disabled = false;
+      botao.textContent = '↻ Reenviar as que falharam (' + falhas + ')';
+      aviso.className = 'aviso-modal';
+      aviso.textContent = criadas + ' nota(s) registrada(s).';
+      if (criadas) carregar();
+      return;
+    }
+    mostrarFalhaNova('');
     botao.disabled = true;
     botao.textContent = 'Concluído';
     aviso.className = 'aviso-modal' + (falhas ? ' erro' : ' ok');
@@ -2826,12 +2874,12 @@
       google.script.run
         .withSuccessHandler(function(r) {
           botao.disabled = false;
-          if (!r.ok) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = r.mensagem; return; }
+          if (!r.ok) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = r.mensagem; mostrarFalhaNova('❌ A NOTA NÃO FOI REGISTRADA', r.mensagem); return; }
           $('modalNovaNota').hidden = true;
           mostrarAviso('Nota #' + r.id + (r.pelaNota ? ' (' + (r.fazenda || 'sem fazenda: escolha na linha') + ')' : '') + ' registrada e na fila de leitura.' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
           carregar();
         })
-        .withFailureHandler(function(erro) { botao.disabled = false; $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Erro: ' + erro.message; })
+        .withFailureHandler(function(erro) { botao.disabled = false; $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = 'Erro: ' + erro.message; mostrarFalhaNova('❌ A NOTA NÃO FOI REGISTRADA', erro.message); botao.textContent = '↻ Tentar registrar de novo'; })
         .novaNota(dadosNota, lista, partes.map(function(p) { return p.texto; }).join(' ').slice(0, 40000));
     }, function(erro) { botao.disabled = false; $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = erro.message; });
   }
