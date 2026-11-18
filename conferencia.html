@@ -1180,6 +1180,7 @@
           break;
         case 'dataTs':
           td = criar('td', 'nowrap centro', item.data);
+          if (item.horaEntrada) { const he = criar('span', 'sub', 'entrou ' + item.horaEntrada); he.title = 'Data e hora em que a nota entrou no sistema'; td.appendChild(he); }
           if (item.atrasoSincronizacao >= 2) {
             const atraso = criar('span', 'marca-atraso', '⏱ +' + item.atrasoSincronizacao + 'd');
             atraso.title = 'Lançado sem internet: chegou ' + item.atrasoSincronizacao + ' dias depois da data de envio.';
