@@ -110,6 +110,9 @@
 
   .falha-envio { background: #fde8e5; color: #9b2c22; border: 2px solid #e5877c; border-radius: 10px; padding: 12px 14px; font-weight: 800; font-size: 14.5px; }
   .falha-envio small { display: block; font-weight: 600; font-size: 12.5px; margin-top: 4px; }
+  td.obs-fin { min-width: 170px; }
+  td.obs-fin textarea { width: 100%; min-height: 32px; resize: vertical; font: inherit; font-size: 12px; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); }
+  td.obs-fin textarea:focus { outline: none; border-color: var(--cor-primaria); }
   .check-lote { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .check-lote input { width: 17px; height: 17px; flex: none; margin: 1px 0 0; accent-color: var(--cor-primaria); }
 
@@ -343,7 +346,7 @@
   }
 
   function textoItem(i) {
-    return [i.data, i.fazenda, i.notaFiscal, i.fornecedor, i.sc, i.etapa, i.origem, i.solicitadoPor, i.almox.frota, i.almox.por, i.obsSolicitacao].join(' ');
+    return [i.obsFin, i.data, i.fazenda, i.notaFiscal, i.fornecedor, i.sc, i.etapa, i.origem, i.solicitadoPor, i.almox.frota, i.almox.por, i.obsSolicitacao].join(' ');
   }
 
   /* ---------- Colunas com filtro digitado (como na Conferência) ---------- */
@@ -359,6 +362,7 @@
     { chave: 'fornecedor', titulo: 'Fornecedor', texto: i => i.fornecedor },
     { chave: 'valor', titulo: 'Valor', direita: true, texto: i => i.valor === null ? '' : moeda(i.valor) + ' ' + Number(i.valor).toFixed(2).replace('.', ',') },
     { chave: 'etapa', titulo: 'Etapa', texto: i => [i.etapa, i.almox.situacao, i.almox.frota, i.almox.por, i.urgencia ? 'urgente ' + i.urgencia : '', i.duplicadaDe.length ? 'duplicada' : ''].join(' ') },
+    { chave: 'obsFin', titulo: 'Obs. financeiro', texto: i => i.obsFin || '' },
     { chave: null, titulo: 'Processo' }
   ];
   const filtros = {};
@@ -495,7 +499,9 @@
       }
       tr.appendChild(tdSel);
       tr.appendChild(criar('td', 'num-id', String(i.id)));
-      tr.appendChild(criar('td', '', i.data));
+      const tdData = criar('td', 'nowrap', i.data);
+      if (i.horaEntrada) { const h = criar('span', 'sub', 'entrou ' + i.horaEntrada); h.title = 'Data e hora em que a nota entrou no sistema'; tdData.appendChild(h); }
+      tr.appendChild(tdData);
       tr.appendChild(criar('td', '', i.fazenda || '—'));
       const nf = criar('td', '', ehOs(i) ? '—' : (i.notaFiscal || '—'));
       if (i.origem !== 'Expedição') nf.appendChild(criar('span', 'sub', i.origem + (i.solicitadoPor ? ' · ' + i.solicitadoPor : '')));
@@ -512,6 +518,7 @@
       if (i.urgencia) tdEtapa.appendChild(criar('span', 'sub urgente', '⚑ Urgente: ' + i.urgencia));
       if (i.duplicadaDe.length) tdEtapa.appendChild(criar('span', 'sub duplicada', '⚠ possível duplicada de #' + i.duplicadaDe.join(', #') + ' (o conferente verifica)'));
       tr.appendChild(tdEtapa);
+      tr.appendChild(celulaObsFin(i));
       const tdAcao = criar('td', 'acao');
       const pronto = i.etapa === 'Baixada';
       const b = criar('button', pronto ? 'botao' : 'botao-sec', pronto ? '🖨 Processo' : 'Ver');
@@ -528,6 +535,34 @@
       tr.appendChild(tdAcao);
       corpo.appendChild(tr);
     });
+  }
+
+  // Observação só do financeiro: escreve e sai da caixa, salva sozinho (ninguém mais vê)
+  function celulaObsFin(i) {
+    const td = criar('td', 'obs-fin');
+    const area = document.createElement('textarea');
+    area.value = i.obsFin || '';
+    area.placeholder = 'Anotação do financeiro...';
+    area.rows = 1;
+    const status = criar('span', 'sub', i.obsFinPor ? 'salvo · ' + i.obsFinPor : '');
+    area.onclick = e => e.stopPropagation();
+    area.onblur = async () => {
+      const novo = area.value.trim();
+      if (novo === (i.obsFin || '')) return;
+      status.textContent = 'salvando...';
+      try {
+        const r = await api('finObs', { token: chave, id: i.id, nome: nome(), texto: novo });
+        i.obsFin = r.texto;
+        i.obsFinPor = r.por;
+        status.textContent = 'salvo · ' + r.por;
+      } catch (e) {
+        status.textContent = '❌ não salvou: ' + e.message;
+        status.className = 'sub alerta';
+      }
+    };
+    td.appendChild(area);
+    td.appendChild(status);
+    return td;
   }
 
   async function alternarUrgencia(i, botao) {
