@@ -320,6 +320,19 @@
   
   .e-urgente { background: #fdeee4; color: #b8501c; box-shadow: inset 0 0 0 1px #f4cdb3; margin-right: 4px; }
   .e-urgente::before, .e-contas::before { display: none; }
+  .e-origem-outra { background: #eef2f5 !important; color: #4c5a63 !important; box-shadow: inset 0 0 0 1px #dbe2e8 !important; }
+  .e-alerta-of { background: #fff2df; color: #a76512; box-shadow: inset 0 0 0 1px #f0d6a8; margin-right: 4px; }
+  .e-alerta-of::before { display: none; }
+  .hist-fundo { position: fixed; inset: 0; z-index: 80; background: rgba(20,32,25,.4); display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .hist-caixa { background: #fff; border-radius: 12px; width: min(760px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .hist-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--cor-borda); }
+  .hist-topo input { flex: 1; height: 32px; border: 1px solid var(--cor-borda); border-radius: 7px; padding: 0 9px; font: inherit; }
+  .hist-lista { overflow: auto; padding: 8px 14px 14px; font-size: 12.5px; }
+  .hist-item { padding: 7px 0; border-bottom: 1px solid var(--cor-borda); }
+  .hist-item b { color: var(--cor-texto); }
+  .hist-item .q { color: var(--cor-texto-suave); font-size: 11.5px; margin-right: 6px; }
+  .hist-item .d { display: block; color: var(--cor-texto-suave); margin-top: 2px; overflow-wrap: anywhere; }
+  .hist-secao { margin: 10px 0 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; font-weight: 800; color: #9aa59e; }
   .e-contas { background: #f1ecfb; color: #6b46b8; box-shadow: inset 0 0 0 1px #dcd0f3; margin-right: 4px; }
   .troca-fazenda { display: flex; gap: 4px; align-items: center; margin-top: 5px; }
   .troca-fazenda select { font: inherit; font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1.5px solid var(--cor-laranja-borda, #c2410c); background: var(--cor-cartao); color: var(--cor-texto); max-width: 150px; }
@@ -573,6 +586,7 @@
     <span class="status-leitura-topo" id="statusLeitura"></span>
     <button class="botao-topo" id="botaoLerFotos">📷 Ler fotos</button>
     <button class="botao-topo" id="botaoNovaNota" title="Registrar uma nota que chegou em papel ou PDF (contas a pagar, almoxarifado...) e não foi lançada pelo app">＋ Nova nota</button>
+    <button class="botao-topo" id="botaoHistGeral" title="Últimas ações de todas as notas">🕘 Histórico</button>
     <button class="botao-topo" id="botaoLinksAlmox" title="Link fixo do portal do almoxarifado de cada fazenda, para mandar pelo WhatsApp">📦 Links do almoxarifado</button>
     <button class="botao-topo destaque" id="botaoAtualizar">↻ Atualizar</button>
   </div>
@@ -639,6 +653,7 @@
         <button type="button" class="botao-sec" id="notaAnterior" title="Nota anterior da lista (seta ←)">◀ Anterior</button>
         <span id="notaPosicao"></span>
         <button type="button" class="botao-sec" id="notaProxima" title="Próxima nota da lista (seta →)">Próxima ▶</button>
+        <button type="button" class="botao-sec" id="botaoHistNota" title="O que foi feito nesta nota">🕘 Histórico</button>
         <button type="button" class="botao-fechar" data-fechar="modalNota" aria-label="Fechar">✕</button>
       </div>
     </div>
@@ -1291,6 +1306,8 @@
           substituirItem(r.item);
           desenhar();
           mostrarAviso('Nota fiscal anexada à ' + rotulo + ' ✓' + (r.item.statusLeitura === 'Aguardando' ? ' — entrou na fila de leitura.' : ''), true);
+          const atualizado = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0];
+          if (atualizado) perguntarComNf(atualizado);
         })
         .withFailureHandler(function(erro) { salvamentosPendentes--; mostrarAviso('Não anexou na ' + rotulo + ': ' + erro.message, false); })
         .anexarDocumento(item.id, item.linha, 'nota', lista);
@@ -1347,7 +1364,12 @@
   function criarCelulaEtapa(item) {
     const td = criar('td', 'etapa');
     if (item.urgencia) td.appendChild(criar('span', 'chip-etapa e-urgente', '⚑ Urgente'));
-    if (item.origem === 'Contas a Pagar') td.appendChild(criar('span', 'chip-etapa e-contas', '💰 Contas a Pagar'));
+    const ORIGEM_CHIP = { 'Contas a Pagar': '💰 Contas a Pagar', 'Expedição': '🚚 Expedição', 'Almoxarifado': '📦 Almoxarifado', 'Conferente': '✓ Conferente' };
+    td.appendChild(criar('span', 'chip-etapa e-contas e-origem-' + (item.origem === 'Contas a Pagar' ? 'fin' : 'outra'), ORIGEM_CHIP[item.origem || 'Expedição'] || item.origem));
+    if (ehOficinaItem(item) && !item.conferido) {
+      if (!(item.almox && item.almox.frota)) td.appendChild(criar('span', 'chip-etapa e-alerta-of', '⚠ Frota não identificada'));
+      if (item.comNf !== 'Sim') td.appendChild(criar('span', 'chip-etapa e-alerta-of', '📎 Falta a nota fiscal'));
+    }
     td.appendChild(criar('span', 'chip-etapa ' + (ETAPA_CLASSE[item.etapa] || 'e-pronta'), item.etapa));
     if (item.urgencia) td.appendChild(sub('⚑ ' + item.urgencia, true));
     const a = item.almox || {};
@@ -1706,6 +1728,7 @@
 
   function criarBotaoAcao(item, obterArea) {
     if (!item.conferido && item.etapa !== 'Confirmada pelo almoxarifado') return null; // baixa é a última ação: só depois da confirmação do almoxarifado
+    if (!item.conferido && faltaNfOficina(item)) return criar('span', 'sub alerta', '📎 anexe a nota fiscal para baixar');
     const botao = criar('button', item.conferido ? 'botao-desfazer' : 'botao-ok', item.conferido ? 'Desfazer' : 'Baixar');
     botao.title = item.conferido ? 'Voltar a nota para as pendências' : 'Dar baixa nesta nota';
     botao.onclick = function() { alternarConferido(item, botao, obterArea()); };
@@ -1804,7 +1827,7 @@
     const itens = Array.from(selecionados.values());
     barra.hidden = !itens.length;
     if (!itens.length) return;
-    const pend = itens.filter(function(i) { return !i.conferido && i.etapa === 'Confirmada pelo almoxarifado'; });
+    const pend = itens.filter(function(i) { return !i.conferido && i.etapa === 'Confirmada pelo almoxarifado' && !faltaNfOficina(i); });
     $('contaSelecao').textContent = itens.length + ' selecionada(s)';
     $('botaoBaixarSel').hidden = !pend.length;
     $('botaoBaixarSel').textContent = '✓ Baixar ' + pend.length + ' confirmada(s)';
@@ -1847,7 +1870,7 @@
 
   function baixarSelecionadas() {
     const marcadas = Array.from(selecionados.values()).filter(function(i) { return !i.conferido; });
-    const pend = marcadas.filter(function(i) { return i.etapa === 'Confirmada pelo almoxarifado'; });
+    const pend = marcadas.filter(function(i) { return i.etapa === 'Confirmada pelo almoxarifado' && !faltaNfOficina(i); });
     if (!pend.length) return;
     const puladas = marcadas.length - pend.length;
     const semImpressao = pend.filter(function(i) { return !i.impressoConf; }).length;
@@ -2510,6 +2533,7 @@
             montarDadosNota();
             carregarDocs(item);
             mostrarAvisoNota(tipoAnexo === 'pedido' ? 'Pedido de compra anexado ✓' : 'Documento anexado ✓' + (item.statusLeitura === 'Aguardando' ? ' — entrou na fila de leitura.' : ''), true);
+            if (tipoAnexo !== 'pedido') perguntarComNf(notaItem || item);
           }
         })
         .withFailureHandler(function(erro) { salvamentosPendentes--; mostrarAvisoNota('Não anexou: ' + erro.message, false); })
@@ -2542,7 +2566,7 @@
     $('notaAnterior').disabled = i <= 0;
     $('notaProxima').disabled = i === -1 || i >= lista.length - 1;
     $('notaPosicao').textContent = i === -1 ? '' : (i + 1) + ' de ' + lista.length;
-    const podeBaixar = notaItem && !notaItem.conferido && notaItem.etapa === 'Confirmada pelo almoxarifado';
+    const podeBaixar = notaItem && !notaItem.conferido && notaItem.etapa === 'Confirmada pelo almoxarifado' && !faltaNfOficina(notaItem);
     $('botaoBaixarProxima').hidden = !podeBaixar;
     $('botaoBaixarESeguir').hidden = !podeBaixar || !vizinhaDaNota(1);
   }
@@ -2571,6 +2595,41 @@
     const caixa = $('notaDivergencia');
     caixa.innerHTML = '';
     const a = item.almox || {};
+    if (!item.conferido && ehOficinaItem(item) && (!a.situacao || !a.frota || faltaNfOficina(item))) {
+      caixa.hidden = false;
+      if (!a.situacao || !a.frota) {
+        caixa.appendChild(criar('div', '', a.situacao ? '🔧 Oficina/Torno: confirmada, mas a frota não foi identificada. Informe a frota:' : '🔧 Oficina/Torno: ninguém confirmou ainda. Informe a frota e confirme, ou envie para a fazenda responsável.'));
+        const linhaF = criar('div', 'troca-fazenda');
+        const entrada = document.createElement('input');
+        entrada.setAttribute('list', 'listaFrotas');
+        entrada.placeholder = 'Frota (nº, placa ou descrição)';
+        entrada.style.cssText = 'font:inherit;font-size:12px;padding:4px 6px;border-radius:6px;border:1.5px solid #e0a25a;max-width:220px';
+        let dl = document.getElementById('listaFrotas');
+        if (!dl) { dl = document.createElement('datalist'); dl.id = 'listaFrotas'; document.body.appendChild(dl); }
+        dl.innerHTML = '';
+        ((dados.meta && dados.meta.frotas) || []).forEach(function(f) { const o = document.createElement('option'); o.value = f.frota; o.label = [f.descricao, f.placa, f.fazenda].filter(Boolean).join(' · '); dl.appendChild(o); });
+        const bc = criar('button', 'botao-docs', a.situacao ? 'Gravar frota' : '✓ Confirmar');
+        bc.type = 'button';
+        bc.onclick = function() {
+          const f = entrada.value.trim();
+          if (!f) { entrada.focus(); return; }
+          bc.disabled = true;
+          google.script.run.withSuccessHandler(function(r) {
+            bc.disabled = false;
+            if (!r.ok) { mostrarAvisoNota(r.mensagem, false); return; }
+            substituirItem(r.item); desenhar();
+            const novo = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0];
+            if (novo) { notaItem = novo; montarDadosNota(); montarDivergencia(novo); atualizarNavNota(); }
+            mostrarAvisoNota('Oficina/Torno: frota ' + f + ' ✓', true);
+          }).withFailureHandler(function(e) { bc.disabled = false; mostrarAvisoNota('Erro: ' + e.message, false); }).confirmarOficina(item.id, item.linha, f);
+        };
+        linhaF.appendChild(entrada); linhaF.appendChild(bc);
+        caixa.appendChild(linhaF);
+        if (!a.situacao) { caixa.appendChild(criar('div', '', 'Ou envie para a fazenda responsável (ela confirma no portal):')); caixa.appendChild(criarTrocaFazenda(item, '')); }
+      }
+      if (faltaNfOficina(item)) caixa.appendChild(criar('div', '', '📎 Falta a nota fiscal (veio só a OS): anexe em "📎 Anexar à nota" para poder dar baixa.'));
+      return;
+    }
     if (!item.conferido && item.etapa === 'Fazenda errada') {
       caixa.hidden = false;
       caixa.appendChild(criar('div', '', '↩ O almoxarifado' + (a.por ? ' (' + a.por + ')' : '') + ' disse que a nota não é da fazenda ' + (item.fazenda || '—') + (a.obs ? ': "' + a.obs + '"' : '') + '. Mova para a fazenda certa:'));
@@ -2606,6 +2665,70 @@
       })
       .withFailureHandler(function(erro) { botao.disabled = false; mostrarAvisoNota('Erro: ' + erro.message, false); })
       .resolverDivergencia(item.id, item.linha, acao, obs.trim());
+  }
+
+  function ehOficinaItem(item) { return normalizar(item.fazenda || '').replace(/\s/g, '') === 'oficina/torno'; }
+  function faltaNfOficina(item) { return ehOficinaItem(item) && item.comNf !== 'Sim'; }
+
+  // depois de anexar a nota numa nota da Oficina/Torno que tinha só a OS: pergunta se o anexo é a nota fiscal
+  function perguntarComNf(item) {
+    if (!faltaNfOficina(item)) return;
+    if (!confirm('O arquivo que você anexou na nota Nº ' + item.id + ' é a NOTA FISCAL?\n\nOK = sim (libera a baixa).\nCancelar = não (continua faltando a nota fiscal).')) return;
+    google.script.run.withSuccessHandler(function(r) {
+      if (!r.ok) { mostrarAviso(r.mensagem, false); return; }
+      substituirItem(r.item); desenhar();
+      if (notaItem && String(notaItem.id) === String(r.item.id)) { notaItem = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0] || notaItem; montarDadosNota(); montarDivergencia(notaItem); atualizarNavNota(); }
+      mostrarAviso('Nota fiscal registrada na Nº ' + item.id + ': já pode dar baixa.', true);
+    }).definirComNf(item.id, item.linha);
+  }
+
+  // Histórico: de uma nota (painel) ou de todas (topo)
+  function abrirHistorico(titulo, carregarFn) {
+    const fundo = criar('div', 'hist-fundo');
+    const caixa = criar('div', 'hist-caixa');
+    const topo = criar('div', 'hist-topo');
+    topo.appendChild(criar('strong', '', titulo));
+    const busca = document.createElement('input');
+    busca.type = 'search';
+    busca.placeholder = '⌕ Filtrar (nº, pessoa, ação...)';
+    topo.appendChild(busca);
+    const fechar = criar('button', 'botao-fechar', '✕');
+    fechar.type = 'button';
+    topo.appendChild(fechar);
+    const lista = criar('div', 'hist-lista', 'Carregando...');
+    caixa.appendChild(topo); caixa.appendChild(lista); fundo.appendChild(caixa);
+    document.body.appendChild(fundo);
+    const sair = function() { fundo.remove(); };
+    fechar.onclick = sair;
+    fundo.addEventListener('mousedown', function(e) { if (e.target === fundo) sair(); });
+    let r = null;
+    const desenharH = function() {
+      lista.innerHTML = '';
+      const f = normalizar(busca.value.trim());
+      const passa = function(t) { return !f || normalizar(t).indexOf(f) !== -1; };
+      const itens = (r.acoes || []).filter(function(x) { return passa([x.id, x.acao, x.quem, x.detalhe, x.quando].join(' ')); });
+      if (r.planilha) lista.appendChild(criar('div', 'hist-secao', 'Ações registradas'));
+      if (!itens.length) lista.appendChild(criar('div', 'hist-item', r.planilha ? 'Nenhuma ação registrada ainda (o histórico começou em 18/11/2026).' : 'Nada encontrado.'));
+      itens.forEach(function(x) {
+        const d = criar('div', 'hist-item');
+        d.appendChild(criar('span', 'q', x.quando));
+        d.appendChild(criar('b', '', (x.id ? 'Nº ' + x.id + ' · ' : '') + x.acao));
+        if (x.quem) d.appendChild(document.createTextNode(' · ' + x.quem));
+        if (x.detalhe) d.appendChild(criar('span', 'd', x.detalhe));
+        lista.appendChild(d);
+      });
+      if (r.planilha && r.planilha.length) {
+        lista.appendChild(criar('div', 'hist-secao', 'Pelos dados da planilha (inclui o que é anterior ao histórico)'));
+        r.planilha.filter(function(x) { return passa(x.texto + ' ' + x.quando); }).forEach(function(x) {
+          const d = criar('div', 'hist-item');
+          if (x.quando) d.appendChild(criar('span', 'q', x.quando));
+          d.appendChild(document.createTextNode(x.texto));
+          lista.appendChild(d);
+        });
+      }
+    };
+    busca.oninput = function() { if (r) desenharH(); };
+    carregarFn(function(res) { r = res; desenharH(); }, function(e) { lista.textContent = 'Erro: ' + e.message; });
   }
 
   // Nota lançada à mão e ainda sem resposta do almoxarifado: sai da base (vai para a aba Excluídas da planilha).
@@ -2989,6 +3112,14 @@
   $('inputAnexo').onchange = function() { enviarAnexos($('inputAnexo').files); };
   $('botaoSalvarCorrecao').onclick = salvarCorrecao;
   $('botaoExcluirNota').onclick = excluirNota;
+  $('botaoHistNota').onclick = function() {
+    const item = notaItem;
+    if (!item) return;
+    abrirHistorico('🕘 Histórico da nota Nº ' + item.id, function(ok, erro) { google.script.run.withSuccessHandler(ok).withFailureHandler(erro).getHistoricoNota(item.id); });
+  };
+  $('botaoHistGeral').onclick = function() {
+    abrirHistorico('🕘 Histórico — últimas ações', function(ok, erro) { google.script.run.withSuccessHandler(ok).withFailureHandler(erro).getHistoricoGeral(300); });
+  };
   $('notaAnterior').onclick = function() { irParaNota(-1); };
   $('notaProxima').onclick = function() { irParaNota(1); };
   $('botaoBaixarProxima').onclick = function() { baixarEProxima(false); };
