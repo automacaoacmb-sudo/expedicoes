@@ -813,7 +813,7 @@
   }
   // falha de envio ao servidor: faixa vermelha grande (o arquivo continua escolhido; é só enviar de novo)
   function falhaEnvio(caixa, e) {
-    $(caixa).textContent = '❌ NÃO FOI ENVIADO. ' + e.message + ' O arquivo continua escolhido: é só enviar de novo.';
+    $(caixa).textContent = e.codigo === 'arquivoRepetido' ? '⚠ ' + e.message : '❌ NÃO FOI ENVIADO. ' + e.message + ' O arquivo continua escolhido: é só enviar de novo.';
     $(caixa).classList.add('falha');
     $(caixa).hidden = false;
     $(caixa).scrollIntoView({ block: 'center', behavior: 'smooth' });
