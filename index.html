@@ -984,7 +984,7 @@ function renderServidor(lista, ehCache) {
     : 'Nenhum lançamento ainda.';
   $('#statusHistorico').hidden = !$('#statusHistorico').textContent;
 
-  lista.forEach(i => {
+  lista.filter(i => !i.origem || i.origem === 'Expedição').forEach(i => { // só o que a expedição lançou (financeiro e conferência ficam de fora)
     const div = criar('div', 'item');
     const topo = criar('div', 'topo');
     topo.appendChild(criar('span', '', i.fazenda));
