@@ -224,7 +224,7 @@ const Comum = (() => {
     const origem = await PDFLib.PDFDocument.load(bytesDe(dataUrl), { ignoreEncryption: true });
     const saida = [];
     for (const g of grupos) {
-      const novo = await PDFLib.PDFDocument.create();
+      const novo = await PDFLib.PDFDocument.create({ updateMetadata: false }); // sem data dentro: o mesmo arquivo dá sempre o mesmo PDF
       (await novo.copyPages(origem, g.paginas)).forEach(pg => novo.addPage(pg));
       saida.push(item('data:application/pdf;base64,' + await novo.saveAsBase64(), g));
     }
