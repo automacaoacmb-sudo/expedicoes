@@ -110,6 +110,12 @@
 
   .falha-envio { background: #fde8e5; color: #9b2c22; border: 2px solid #e5877c; border-radius: 10px; padding: 12px 14px; font-weight: 800; font-size: 14.5px; }
   .falha-envio small { display: block; font-weight: 600; font-size: 12.5px; margin-top: 4px; }
+  .lista-envio { max-height: 300px; overflow: auto; border: 1px solid var(--cor-borda); border-radius: 8px; padding: 6px; }
+  .lista-envio table { width: 100%; font-size: 12px; }
+  .lista-envio thead th { position: static; background: var(--cor-cabecalho); color: var(--cor-texto-suave); padding: 4px 6px; }
+  .lista-envio td { padding: 4px 6px; border-bottom: 1px solid var(--cor-borda); }
+  .lista-envio td.alerta-lote { color: #a2620f; font-weight: 700; }
+  .lista-envio .botao-sec { margin-top: 6px; }
   td.obs-fin { min-width: 170px; }
   td.obs-fin textarea { width: 100%; min-height: 32px; resize: vertical; font: inherit; font-size: 12px; padding: 5px 7px; border-radius: 6px; border: 1px solid var(--cor-borda); background: var(--cor-cartao); color: var(--cor-texto); }
   td.obs-fin textarea:focus { outline: none; border-color: var(--cor-primaria); }
@@ -283,6 +289,11 @@
         <div class="campo largo"><label for="anexoObs">O que você precisa</label><textarea id="anexoObs" rows="2" placeholder="Ex.: confirmar se chegou na fazenda antes do pagamento"></textarea></div>
       </div>
       <div class="falha-envio" id="anexoFalha" hidden></div>
+      <div class="lista-envio" id="finLista" hidden>
+        <table><thead><tr><th></th><th>Arquivo / nota</th><th>NF</th><th>Valor</th><th>Situação</th></tr></thead><tbody id="finListaCorpo"></tbody></table>
+        <button type="button" class="botao-sec" id="finJuntar">🔗 Juntar marcadas numa nota só</button>
+        <span class="info"> Use para OS + nota fiscal do mesmo serviço.</span>
+      </div>
       <div class="aviso-modal" id="anexoAviso"></div>
       <div class="botoes">
         <button class="botao" id="botaoEnviarAnexo">Enviar para o conferente</button>
@@ -786,6 +797,9 @@
     $('anexoAviso').className = 'aviso-modal';
     $('botaoEnviarAnexo').disabled = false;
     reenviar = null;
+    listaFin = null;
+    $('finLista').hidden = true;
+    ignorarRepetidoProx = false;
     mostrarFalha('');
     $('modalAnexar').hidden = false;
   }
@@ -837,7 +851,7 @@
       lidos = lidos.filter(x => !x.iguais.length);
       if (!lidos.length) { msg.textContent = 'Nada a enviar: todas já estavam na lista.'; return; }
     }
-    const criadas = [], falhas = [], avisos = [], falhadas = [];
+    const criadas = [], falhas = [], avisos = [], falhadas = [], puladas = [];
     mostrarFalha('');
     botao.disabled = true;
     for (let i = 0; i < lidos.length; i++) {
@@ -848,7 +862,10 @@
           dados: Object.assign({}, dados, { notaFiscal: lidos[i].numero }) }, 180000);
         criadas.push('#' + r.id + textoResultadoFazenda(r));
         if (r.aviso) avisos.push('#' + r.id + ': ' + r.aviso);
-      } catch (e) { falhas.push(lidos[i].nome + ' (' + e.message + ')'); falhadas.push(lidos[i]); }
+      } catch (e) {
+        if (e.codigo === 'arquivoRepetido') { puladas.push(lidos[i].nome + ': ' + e.message); continue; }
+        falhas.push(lidos[i].nome + ' (' + e.message + ')'); falhadas.push(lidos[i]);
+      }
     }
     botao.disabled = false;
     if (falhas.length) {
@@ -859,9 +876,65 @@
       $('botaoEnviarAnexo').textContent = '↻ Reenviar as que falharam (' + falhadas.length + ')';
     } else {
       $('modalAnexar').hidden = true;
-      aviso(criadas.length + ' notas enviadas ao conferente e ao almoxarifado (' + criadas.join(', ') + ').' + (avisos.length ? ' ' + avisos.join(' ') : ''), !avisos.length);
+      aviso(criadas.length + ' notas enviadas ao conferente e ao almoxarifado (' + criadas.join(', ') + ').' + (avisos.length ? ' ' + avisos.join(' ') : '') + (puladas.length ? ' ⏭ Não enviadas (arquivo já enviado antes): ' + puladas.join(' | ') : ''), !avisos.length && !puladas.length);
     }
     if (criadas.length) carregar();
+  }
+
+  // Lista do lote: confere antes de enviar; junta OS + NF do mesmo serviço numa nota só
+  let listaFin = null;
+  let ignorarRepetidoProx = false;
+  function valorDoTexto(t) {
+    const m = String(t || '').match(/VALOR TOTAL DA NOTA\D{0,40}?([\d.]{1,12},\d{2})/i) || String(t || '').match(/Valor L[íi]quido da NFS-?e\D{0,20}?([\d.]{1,12},\d{2})/i) || String(t || '').match(/TOTAL\D{0,15}?([\d.]{1,12},\d{2})/i);
+    return m ? m[1] : '';
+  }
+  function prepararListaFin(unidades) {
+    listaFin = unidades.map(u => Object.assign({}, u, { marcada: !(u.numero && parecidasNaLista(u.numero).length), valor: valorDoTexto(u.texto) }));
+    desenharListaFin();
+  }
+  function desenharListaFin() {
+    const corpo = $('finListaCorpo');
+    corpo.innerHTML = '';
+    listaFin.forEach((x, k) => {
+      const tr = criar('tr');
+      const tdc = criar('td');
+      const c = document.createElement('input');
+      c.type = 'checkbox'; c.checked = x.marcada;
+      c.onchange = () => { x.marcada = c.checked; contarFin(); };
+      tdc.appendChild(c); tr.appendChild(tdc);
+      tr.appendChild(criar('td', '', x.nome));
+      tr.appendChild(criar('td', '', x.numero || '—'));
+      tr.appendChild(criar('td', '', x.valor ? 'R$ ' + x.valor : 'a ler'));
+      const iguais = x.numero ? parecidasNaLista(x.numero) : [];
+      const mesmoValor = x.valor ? listaFin.filter((y, j) => j !== k && y.valor === x.valor).map(y => listaFin.indexOf(y) + 1) : [];
+      const sit = iguais.length ? '⚠ já existe #' + iguais.map(i => i.id).join(', #') : mesmoValor.length ? '⚠ mesmo valor da linha ' + mesmoValor.join(', ') + ': OS + NF do mesmo serviço? Junte.' : 'pronta';
+      tr.appendChild(criar('td', iguais.length || mesmoValor.length ? 'alerta-lote' : '', sit));
+      corpo.appendChild(tr);
+    });
+    $('finLista').hidden = false;
+    contarFin();
+  }
+  function contarFin() {
+    const n = listaFin.filter(x => x.marcada).length;
+    $('botaoEnviarAnexo').textContent = 'Enviar marcadas (' + n + ')';
+    $('anexoAviso').className = 'aviso-modal';
+    $('anexoAviso').textContent = listaFin.length + ' nota(s) encontrada(s). Desmarque o que não quer enviar; marque OS e NF do mesmo serviço e clique em "Juntar".';
+  }
+  function juntarMarcadasFin() {
+    const marcadas = listaFin.filter(x => x.marcada);
+    if (marcadas.length < 2) { $('anexoAviso').textContent = 'Marque pelo menos 2 linhas para juntar.'; return; }
+    const junta = {
+      nome: marcadas.map(x => x.nome).join(' + '),
+      lista: [].concat.apply([], marcadas.map(x => x.lista)),
+      numero: (marcadas.find(x => x.numero && !/^0/.test(x.numero)) || marcadas.find(x => x.numero) || {}).numero || '',
+      texto: marcadas.map(x => x.texto).join(' ').slice(0, 40000),
+      valor: (marcadas.find(x => x.valor) || {}).valor || '',
+      marcada: true
+    };
+    const pos = listaFin.indexOf(marcadas[0]);
+    listaFin = listaFin.filter(x => !x.marcada);
+    listaFin.splice(Math.min(pos, listaFin.length), 0, junta);
+    desenharListaFin();
   }
 
   // faixa vermelha no alto da janela quando algo não foi enviado
@@ -878,12 +951,17 @@
 
   async function enviarAnexo() {
     if (reenviar && reenviar.length) { const r = reenviar; reenviar = null; enviarEmLote(null, r); return; }
+    if (listaFin) { const marcadas = listaFin.filter(x => x.marcada); if (!marcadas.length) return; listaFin = null; $('finLista').hidden = true; enviarEmLote(null, marcadas); return; }
     mostrarFalha('');
     const arquivos = $('anexoArquivos').files;
     const msg = $('anexoAviso');
     if (!arquivos.length) { msg.className = 'aviso-modal erro'; msg.textContent = 'Anexe a foto ou o PDF da nota.'; return; }
     if (!$('anexoFazenda').value) { msg.className = 'aviso-modal erro'; msg.textContent = 'Escolha a fazenda.'; $('anexoFazenda').focus(); return; }
-    if ($('anexoLote').checked) { enviarEmLote(Array.from(arquivos)); return; }
+    if ($('anexoLote').checked) {
+      msg.className = 'aviso-modal'; msg.textContent = 'Separando as notas...';
+      try { prepararListaFin(await unidadesDosArquivos(Array.from(arquivos))); } catch (e) { msg.className = 'aviso-modal erro'; msg.textContent = e.message; }
+      return;
+    }
     // um PDF com várias notas: oferece lançar uma nota para cada (separadas pela chave de acesso)
     let unidades;
     msg.className = 'aviso-modal';
@@ -891,10 +969,7 @@
     try { unidades = await unidadesDosArquivos(Array.from(arquivos)); } catch (e) { msg.className = 'aviso-modal erro'; msg.textContent = e.message; return; }
     msg.textContent = '';
     const multiplas = unidades.length > arquivos.length;
-    if (multiplas && confirm('Encontrei ' + unidades.length + ' notas diferentes no(s) arquivo(s).\n\nOK = lançar uma nota para cada (recomendado).\nCancelar = lançar tudo como uma nota só.')) {
-      enviarEmLote(Array.from(arquivos), unidades);
-      return;
-    }
+    if (multiplas) { prepararListaFin(unidades); return; } // várias notas: confere na lista (e junta OS + NF, se for o caso)
     // número que já está na lista: pede um segundo clique ("Enviar mesmo assim")
     if (parecidasNaLista($('anexoNF').value).length && !confirmouDuplicada) {
       confirmouDuplicada = true;
@@ -911,12 +986,19 @@
       const lista = await Comum.documentarTodas(await lerArquivos(arquivos));
       const r = await api('finEnviarNota', {
         token: chave, nome: nome(), arquivos: lista, textoNota: unidades.map(u => u.texto).join(' ').slice(0, 40000),
-        dados: { fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
+        dados: { ignorarRepetido: ignorarRepetidoProx, fazenda: $('anexoFazenda').value, notaFiscal: $('anexoNF').value.trim(), fornecedor: $('anexoFornecedor').value.trim(), obs: $('anexoObs').value.trim(), valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.') }
       }, 180000);
       $('modalAnexar').hidden = true;
       aviso('Nota enviada ao conferente e ao almoxarifado (#' + r.id + textoResultadoFazenda(r) + ').' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
       carregar();
     } catch (e) {
+      if (e.codigo === 'arquivoRepetido') {
+        mostrarFalha('⚠ ESSE ARQUIVO JÁ FOI ENVIADO', e.message + ' Se for mesmo outra nota, clique em "Enviar mesmo assim".');
+        ignorarRepetidoProx = true;
+        $('botaoEnviarAnexo').textContent = 'Enviar mesmo assim';
+        msg.textContent = '';
+        return;
+      }
       msg.className = 'aviso-modal erro';
       msg.textContent = e.message;
       mostrarFalha('❌ A NOTA NÃO FOI ENVIADA', e.message + ' O arquivo e os dados continuam aqui: é só clicar em "Tentar enviar de novo".');
@@ -951,7 +1033,9 @@
   $('botaoAtualizar').onclick = carregar;
   $('botaoAnexar').onclick = abrirAnexar;
   $('botaoEnviarAnexo').onclick = enviarAnexo;
-  $('anexoLote').onchange = atualizarLote;
+  $('anexoLote').onchange = () => { listaFin = null; $('finLista').hidden = true; atualizarLote(); };
+  $('finJuntar').onclick = juntarMarcadasFin;
+  $('anexoArquivos').addEventListener('change', () => { listaFin = null; $('finLista').hidden = true; ignorarRepetidoProx = false; });
   $('anexoNF').oninput = () => { confirmouDuplicada = false; atualizarLote(); avisarParecidas(); };
   // ao escolher o arquivo: lê o número da NF no PDF, preenche o campo (se vazio) e já cruza com a lista
   $('anexoArquivos').onchange = async () => {
