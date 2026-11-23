@@ -2065,7 +2065,7 @@
     const origem = await PDFLib.PDFDocument.load(bytesDe(dataUrl), { ignoreEncryption: true });
     const saida = [];
     for (const g of grupos) {
-      const novo = await PDFLib.PDFDocument.create();
+      const novo = await PDFLib.PDFDocument.create({ updateMetadata: false }); // sem data dentro: o mesmo arquivo dá sempre o mesmo PDF
       (await novo.copyPages(origem, g.paginas)).forEach(function(pg) { novo.addPage(pg); });
       saida.push(item('data:application/pdf;base64,' + await novo.saveAsBase64(), g));
     }
@@ -2800,6 +2800,7 @@
     ['novaArquivos', 'novaNF', 'novaValor', 'novaFornecedor', 'novaObs'].forEach(function(id) { $(id).value = ''; });
     $('novaLote').checked = false;
     preparadas = null;
+    ignorarRepetidoNova = false;
     $('novaLista').hidden = true;
     atualizarLote();
     confirmouRepetida = false;
@@ -2874,7 +2875,8 @@
     return lidos;
   }
 
-  let preparadas = null; // notas separadas e mostradas na lista, esperando o "Registrar marcadas"
+  let preparadas = null;
+  let ignorarRepetidoNova = false; // o arquivo já estava numa nota e a pessoa disse "registrar mesmo assim" // notas separadas e mostradas na lista, esperando o "Registrar marcadas"
   function mostrarFalhaNova(titulo, detalhe) {
     const f = $('novaFalha');
     f.hidden = !titulo;
@@ -2934,6 +2936,7 @@
       try {
         const r = await new Promise(function(ok, falhou) { google.script.run.withSuccessHandler(ok).withFailureHandler(falhou).novaNota(Object.assign({}, base, { notaFiscal: x.numero }), x.lista, x.texto); });
         if (r.ok) { criadas++; x.situacao = '✓ criada #' + r.id + (r.pelaNota ? ' → ' + (r.fazenda || 'sem fazenda') : '') + (r.aviso ? ' (possível duplicada)' : ''); x.classe = 'ok'; }
+        else if (r.codigo === 'arquivoRepetido') { x.situacao = '⏭ não enviada: ' + r.mensagem; x.classe = 'pula'; }
         else { falhas++; x.situacao = '✗ ' + r.mensagem; x.classe = 'erro'; }
       } catch (erro) { falhas++; x.situacao = '✗ ' + erro.message; x.classe = 'erro'; }
       desenharListaEnvio();
@@ -2990,6 +2993,7 @@
     $('novaAviso').textContent = 'Enviando...';
     const valor = $('novaValor').value.trim();
     const dadosNota = {
+      ignorarRepetido: ignorarRepetidoNova,
       origem: $('novaOrigem').value, fazenda: $('novaFazenda').value, notaFiscal: $('novaNF').value.trim(),
       fornecedor: $('novaFornecedor').value.trim(), obs: $('novaObs').value.trim(),
       valor: valor === '' ? '' : valor.replace(/\./g, '').replace(',', '.')
@@ -2998,6 +3002,13 @@
       google.script.run
         .withSuccessHandler(function(r) {
           botao.disabled = false;
+          if (!r.ok && r.codigo === 'arquivoRepetido') {
+            mostrarFalhaNova('⚠ ESSE ARQUIVO JÁ FOI ENVIADO', r.mensagem + ' Se for mesmo outra nota, clique em "Registrar mesmo assim".');
+            ignorarRepetidoNova = true;
+            botao.textContent = 'Registrar mesmo assim';
+            $('novaAviso').textContent = '';
+            return;
+          }
           if (!r.ok) { $('novaAviso').className = 'aviso-modal erro'; $('novaAviso').textContent = r.mensagem; mostrarFalhaNova('❌ A NOTA NÃO FOI REGISTRADA', r.mensagem); return; }
           $('modalNovaNota').hidden = true;
           mostrarAviso('Nota #' + r.id + (r.pelaNota ? ' (' + (r.fazenda || 'sem fazenda: escolha na linha') + ')' : '') + ' registrada e na fila de leitura.' + (r.aviso ? ' ' + r.aviso : ''), !r.aviso);
@@ -3127,7 +3138,7 @@
   $('botaoImprimirSel').onclick = imprimirSelecionadas;
   $('botaoBaixarSel').onclick = baixarSelecionadas;
   $('botaoLimparSel').onclick = function() { selecionados.clear(); desenhar(); };
-  ['novaArquivos', 'novaLote'].forEach(function(id) { $(id).addEventListener('change', function() { preparadas = null; $('novaLista').hidden = true; $('botaoCriarNota').textContent = $('novaLote').checked ? 'Ver as notas antes de registrar' : 'Registrar nota'; }); });
+  ['novaArquivos', 'novaLote'].forEach(function(id) { $(id).addEventListener('change', function() { preparadas = null; ignorarRepetidoNova = false; $('novaLista').hidden = true; $('botaoCriarNota').textContent = $('novaLote').checked ? 'Ver as notas antes de registrar' : 'Registrar nota'; }); });
   $('novaCopiar').onclick = function() {
     const txt = (preparadas || []).map(function(x) { return [x.nome, x.numero || '', x.valor || '', x.situacao || ''].join('\t'); }).join('\n');
     navigator.clipboard.writeText('Arquivo\tNF\tValor\tSituação\n' + txt).then(function() { $('novaCopiar').textContent = 'Copiado ✓'; });
