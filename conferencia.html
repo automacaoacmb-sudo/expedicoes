@@ -586,6 +586,7 @@
     <span class="status-leitura-topo" id="statusLeitura"></span>
     <button class="botao-topo" id="botaoLerFotos">📷 Ler fotos</button>
     <button class="botao-topo" id="botaoNovaNota" title="Registrar uma nota que chegou em papel ou PDF (contas a pagar, almoxarifado...) e não foi lançada pelo app">＋ Nova nota</button>
+    <button class="botao-topo" id="botaoIndicadores" title="Números por fazenda: pendências, tempo de resposta, envios do almoxarifado">📊 Indicadores</button>
     <button class="botao-topo" id="botaoHistGeral" title="Últimas ações de todas as notas">🕘 Histórico</button>
     <button class="botao-topo" id="botaoLinksAlmox" title="Link fixo do portal do almoxarifado de cada fazenda, para mandar pelo WhatsApp">📦 Links do almoxarifado</button>
     <button class="botao-topo destaque" id="botaoAtualizar">↻ Atualizar</button>
@@ -2236,6 +2237,8 @@
     caixa.appendChild(document.createTextNode('Pode ser a mesma nota que: '));
     outras.forEach(function(o) {
       caixa.appendChild(criar('div', '', '#' + o.id + ' · ' + (o.origem || 'Expedição') + ' · ' + o.data + ' · NF/OS ' + (o.notaFiscal || '—') + ' · ' + (o.fornecedor || '—') + (o.valor !== null ? ' · ' + formatarValor(o.valor) : '') + ' · ' + o.etapa));
+      const motivo = item.duplicadaMotivo && item.duplicadaMotivo[o.id];
+      if (motivo) caixa.appendChild(criar('div', 'sub', 'Por quê: ' + motivo));
       const b = criar('button', 'botao-sec', 'Juntar #' + o.id + ' nesta nota');
       b.type = 'button';
       b.title = 'Os documentos e os dados que faltam aqui vêm da #' + o.id + ', que deixa de existir';
@@ -2680,6 +2683,63 @@
       if (notaItem && String(notaItem.id) === String(r.item.id)) { notaItem = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0] || notaItem; montarDadosNota(); montarDivergencia(notaItem); atualizarNavNota(); }
       mostrarAviso('Nota fiscal registrada na Nº ' + item.id + ': já pode dar baixa.', true);
     }).definirComNf(item.id, item.linha);
+  }
+
+  // Painel de indicadores (por fazenda)
+  function abrirIndicadores() {
+    const fundo = criar('div', 'hist-fundo');
+    const caixa = criar('div', 'hist-caixa');
+    caixa.style.width = 'min(1000px, 100%)';
+    const topo = criar('div', 'hist-topo');
+    topo.appendChild(criar('strong', '', '📊 Indicadores'));
+    const sel = document.createElement('select');
+    [['0', 'Este mês'], ['30', 'Últimos 30 dias'], ['90', 'Últimos 90 dias']].forEach(function(p) { const o = criar('option', '', p[1]); o.value = p[0]; sel.appendChild(o); });
+    sel.style.cssText = 'font:inherit;height:32px;border:1px solid var(--cor-borda);border-radius:7px;padding:0 8px';
+    topo.appendChild(sel);
+    const fechar = criar('button', 'botao-fechar', '✕');
+    fechar.type = 'button';
+    topo.appendChild(fechar);
+    const lista = criar('div', 'hist-lista', 'Carregando...');
+    caixa.appendChild(topo); caixa.appendChild(lista); fundo.appendChild(caixa);
+    document.body.appendChild(fundo);
+    fechar.onclick = function() { fundo.remove(); };
+    fundo.addEventListener('mousedown', function(e) { if (e.target === fundo) fundo.remove(); });
+    const horas = function(h) { return h === null ? '—' : h < 24 ? h + ' h' : (Math.round(h / 24 * 10) / 10).toString().replace('.', ',') + ' dias'; };
+    const carregarI = function() {
+      lista.textContent = 'Carregando...';
+      google.script.run.withSuccessHandler(function(r) {
+        lista.innerHTML = '';
+        const tot = r.fazendas.reduce(function(s, f) { s.p += f.pendentes; s.v += f.valorPendente; s.l += f.lancadas; s.e += f.espontaneas; return s; }, { p: 0, v: 0, l: 0, e: 0 });
+        const cards = criar('div', 'cartoes');
+        cards.style.margin = '6px 0 10px';
+        [['Pendentes', tot.p + ' · ' + formatarValor(tot.v)], ['Lançadas desde ' + r.desde, tot.l], ['Enviadas pelo almoxarifado', tot.e], ['Duplicadas barradas', r.barradas], ['Notas juntadas', r.juntadas]].forEach(function(c) {
+          const b = criar('span', 'cartao-num');
+          b.appendChild(criar('span', 'rotulo', c[0]));
+          b.appendChild(criar('span', 'numero', String(c[1])));
+          cards.appendChild(b);
+        });
+        lista.appendChild(cards);
+        const t = document.createElement('table');
+        t.style.cssText = 'width:100%;font-size:12.5px;border-collapse:collapse';
+        const cab = ['Fazenda', 'Pendentes', 'R$ pendente', 'Aguardando almox.', 'Lançadas', 'Enviadas pelo almox.', 'Respostas', 'Tempo médio de resposta', 'Divergências'];
+        const tr0 = document.createElement('tr');
+        cab.forEach(function(c) { const th = criar('th', '', c); th.style.cssText = 'text-align:left;padding:6px;border-bottom:1px solid var(--cor-borda);color:var(--cor-texto-suave)'; tr0.appendChild(th); });
+        t.appendChild(tr0);
+        r.fazendas.forEach(function(f) {
+          const tr = document.createElement('tr');
+          [f.fazenda, f.pendentes, formatarValor(f.valorPendente), f.aguardando, f.lancadas, f.espontaneas, f.respostas, horas(f.tempoMedioHoras), f.divergencias].forEach(function(v, i) {
+            const td = criar('td', '', String(v));
+            td.style.cssText = 'padding:6px;border-bottom:1px solid var(--cor-borda)' + (i === 0 ? ';font-weight:700' : '');
+            tr.appendChild(td);
+          });
+          t.appendChild(tr);
+        });
+        lista.appendChild(t);
+        lista.appendChild(criar('div', 'sub', 'Tempo médio de resposta: da entrada da nota no sistema até a resposta do almoxarifado (não conta confirmação automática nem a do conferente). "Enviadas pelo almoxarifado": notas que o próprio almoxarifado lançou pelo portal.'));
+      }).withFailureHandler(function(e) { lista.textContent = 'Erro: ' + e.message; }).getIndicadores(Number(sel.value));
+    };
+    sel.onchange = carregarI;
+    carregarI();
   }
 
   // Histórico: de uma nota (painel) ou de todas (topo)
@@ -3128,6 +3188,7 @@
     if (!item) return;
     abrirHistorico('🕘 Histórico da nota Nº ' + item.id, function(ok, erro) { google.script.run.withSuccessHandler(ok).withFailureHandler(erro).getHistoricoNota(item.id); });
   };
+  $('botaoIndicadores').onclick = abrirIndicadores;
   $('botaoHistGeral').onclick = function() {
     abrirHistorico('🕘 Histórico — últimas ações', function(ok, erro) { google.script.run.withSuccessHandler(ok).withFailureHandler(erro).getHistoricoGeral(300); });
   };
