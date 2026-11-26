@@ -192,6 +192,9 @@
 
   #aviso { flex: none; padding: 9px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 8px; }
   #aviso.ok { background: var(--cor-sucesso-fundo); color: var(--cor-primaria-escura); }
+  #alertaLeitura { margin: 8px 0; padding: 12px 16px; border-radius: 8px; background: var(--cor-erro-fundo); color: var(--cor-erro); border: 2px solid var(--cor-erro); font-size: 15px; line-height: 1.45; }
+  #alertaLeitura strong { font-size: 16px; }
+  #alertaLeitura small { display: block; margin-top: 4px; opacity: .85; }
   #aviso.erro { background: var(--cor-erro-fundo); color: var(--cor-erro); }
 
   .abas { display: flex; gap: 4px; }
@@ -595,6 +598,7 @@
 </div>
 
 <main>
+  <div id="alertaLeitura" role="alert" hidden></div>
   <div id="aviso" hidden></div>
 
   <!-- resumo (clicar filtra) à esquerda e a busca geral encostada na margem direita -->
@@ -3222,8 +3226,24 @@
     $('statusLeitura').textContent = texto;
     $('statusLeitura').title = statusAtual.erro || '';
 
+    // leitura automática parada: faixa vermelha bem visível para o conferente avisar o responsável
+    const semResposta = pedido && (Date.now() - new Date(statusAtual.pedidoEm).getTime()) / 60000 > 10;
+    const comErro = !pedido && !lendo && !!statusAtual.erro;
+    const alerta = $('alertaLeitura');
+    alerta.hidden = !(semResposta || comErro);
+    if (!alerta.hidden) {
+      const motivo = semResposta
+        ? 'O computador de leitura não responde desde ' + horaDe(statusAtual.pedidoEm) + ' (pode estar desligado ou sem internet).'
+        : (/login/i.test(statusAtual.erro) ? 'O login do Claude no computador de leitura expirou.' : 'A última tentativa (' + dataHoraDe(statusAtual.fim) + ') deu erro: ' + statusAtual.erro);
+      alerta.innerHTML = '';
+      alerta.appendChild(criar('strong', '', '⚠ LEITURA AUTOMÁTICA PARADA — avise o Patrick.'));
+      alerta.appendChild(criar('div', '', motivo + (p ? ' ' + p + ' nota(s) esperando leitura.' : '')));
+      alerta.appendChild(criar('small', '', 'As notas lançadas ficam guardadas e serão lidas quando voltar: não precisa excluir nem reenviar.'));
+    }
+
     clearTimeout(vigiaTimer);
     if (pedido || lendo) vigiaTimer = setTimeout(atualizarStatusLeitura, 20000);
+    else if (comErro) vigiaTimer = setTimeout(atualizarStatusLeitura, 180000); // some sozinha quando voltar a funcionar
     // estava esperando/lendo e terminou: recarrega para mostrar os dados lidos
     if ((pedidoPendente(anterior) || lendoAgora(anterior)) && !pedido && !lendo) carregar();
   }
