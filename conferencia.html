@@ -425,6 +425,7 @@
   .lista-envio td.pula { color: #a2620f; }
   .lista-envio td.erro { color: var(--cor-erro); font-weight: 700; }
   .lista-envio .botao-limpar { margin-top: 6px; }
+  #vistaCarimbo.ativo-carimbo { border-color: #1d4ed8; color: #1d4ed8; background: #eef3ff; }
   .nav-nota { display: flex; align-items: center; gap: 6px; }
   .nav-nota .botao-sec { padding: 5px 10px; font-size: 12px; }
   .nav-nota .botao-sec:disabled { opacity: 0.4; cursor: default; }
@@ -676,7 +677,8 @@
           <button type="button" class="botao-sec" id="vistaAjustar" title="Voltar ao tamanho da tela">Ajustar</button>
           <button type="button" class="botao-sec" id="vistaGirarEsq" title="Girar para a esquerda">⟲ Girar</button>
           <button type="button" class="botao-sec" id="vistaGirarDir" title="Girar para a direita">Girar ⟳</button>
-          <button type="button" class="botao-sec" id="vistaOriginal" title="As fotos aparecem e imprimem tratadas (modo documento). Clique para ver como chegaram.">Ver original</button>
+          <button type="button" class="botao-sec" id="vistaTratar" title="Clareia o fundo e reforça o texto desta foto. A escolha fica salva e vale para a impressão.">✨ Tratar imagem</button>
+          <button type="button" class="botao-sec" id="vistaCarimbo" title="Liga ou desliga o carimbo do recebimento neste documento (fica salvo na nota)">🔖 Carimbo</button>
         </div>
         <div class="acoes-docs">
           <button type="button" class="botao-imprimir" id="botaoImprimirNota">🖨 Imprimir nota</button>
@@ -1650,7 +1652,8 @@
             return out;
           };
           fundo = filtrar(filtrar(filtrar(fundo, 2, true), 3, false), 2, false);
-          // 2) cada ponto: cinza / iluminação, depois curva de contraste (papel branco, texto escuro)
+          // 2) cada ponto: cinza / iluminação (tira sombra e fundo amarelado)
+          const norm = new Float32Array(W * H);
           for (let y = 0; y < H; y++) {
             const fy = Math.min(sh - 1.001, Math.max(0, (y + 0.5) * sh / H - 0.5)), y0 = fy | 0, ty = fy - y0;
             for (let x = 0; x < W; x++) {
@@ -1659,11 +1662,19 @@
               const b = Math.max(30, (fundo[a0] * (1 - tx) + fundo[a0 + 1] * tx) * (1 - ty) + (fundo[a1] * (1 - tx) + fundo[a1 + 1] * tx) * ty);
               const i = (y * W + x) * 4;
               const cinza = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-              let v = cinza * 255 / b;
-              v = (v - 95) * 255 / (225 - 95);
-              v = v < 0 ? 0 : v > 255 ? 255 : v;
-              px[i] = px[i + 1] = px[i + 2] = v;
+              norm[y * W + x] = Math.min(255, cinza * 255 / b);
             }
+          }
+          // 3) contraste pela própria foto: o mais escuro vira preto, o papel vira branco (texto claro continua visível)
+          const hist = new Uint32Array(256);
+          for (let k = 0; k < norm.length; k++) hist[norm[k] | 0]++;
+          const pct = function(p) { let s = 0; const alvo = norm.length * p; for (let k = 0; k < 256; k++) { s += hist[k]; if (s >= alvo) return k; } return 255; };
+          let lo = pct(0.005), hi = Math.min(250, pct(0.6));
+          if (hi - lo < 60) lo = Math.max(0, hi - 60);
+          for (let k = 0; k < norm.length; k++) {
+            let v = (norm[k] - lo) * 255 / (hi - lo);
+            v = v < 0 ? 0 : v > 255 ? 255 : v;
+            px[k * 4] = px[k * 4 + 1] = px[k * 4 + 2] = v;
           }
           g.putImageData(dados, 0, 0);
           resolve(c.toDataURL('image/jpeg', 0.8));
@@ -1681,11 +1692,71 @@
   let verOriginal = false;
   // guarda no cache a versão tratada (fotos) e a original
   async function guardarDocs(item, r) {
-    const entrada = { nota: await documentarTodas(r.nota), pedido: await documentarTodas(r.pedido), orig: { nota: r.nota, pedido: r.pedido } };
+    const entrada = { orig: { nota: r.nota, pedido: r.pedido }, ajustes: r.ajustes || {}, tratados: {}, nf: {}, nota: [], pedido: [] };
+    await montarVista(entrada);
     cacheDocs[chaveItem(item)] = entrada;
     return entrada;
   }
-  const docsDaVista = function(entrada) { return verOriginal && entrada.orig ? entrada.orig : entrada; };
+  const docsDaVista = function(entrada) { return entrada; };
+  const ajusteDe = function(entrada, aba, i) { return (entrada.ajustes[aba] || {})[String(i)] || {}; };
+  // o que aparece e imprime: o original, ou a versão tratada quando o conferente escolheu "Tratar imagem"
+  async function montarVista(entrada) {
+    for (const aba of ['nota', 'pedido']) {
+      const lista = [];
+      for (let i = 0; i < entrada.orig[aba].length; i++) {
+        const src = entrada.orig[aba][i];
+        if (ajusteDe(entrada, aba, i).tratar && !ehPdf(src)) {
+          if (!entrada.tratados[aba + i]) entrada.tratados[aba + i] = await documentar(src);
+          lista.push(entrada.tratados[aba + i]);
+        } else lista.push(src);
+      }
+      entrada[aba] = lista;
+    }
+  }
+  // é nota fiscal? (PDF com DANFE / NFS-e / chave de acesso; foto não dá para saber)
+  async function ehNotaFiscalDoc(entrada, aba, i) {
+    const k = aba + i;
+    if (entrada.nf[k] !== undefined) return entrada.nf[k];
+    const src = entrada.orig[aba][i];
+    let sim = false;
+    if (ehPdf(src)) {
+      try {
+        const pdfjs = await carregarPdfJs();
+        const doc = await pdfjs.getDocument({ data: bytesDe(src) }).promise;
+        let t = '';
+        for (let p = 1; p <= Math.min(2, doc.numPages); p++) t += ' ' + (await (await doc.getPage(p)).getTextContent()).items.map(function(x) { return x.str; }).join(' ');
+        sim = !!chaveDeAcesso(t) || /DANFE|DANFSe|NFS-?e|DOCUMENTO AUXILIAR DA NOTA FISCAL/i.test(t);
+      } catch (e) { sim = false; }
+    }
+    entrada.nf[k] = sim;
+    return sim;
+  }
+  // carimbo: o que o conferente escolheu; senão, em cada nota fiscal; sem nenhuma NF reconhecida, no 1º documento
+  async function deveCarimbar(entrada, aba, i) {
+    const a = ajusteDe(entrada, aba, i);
+    if (a.carimbo === true || a.carimbo === false) return a.carimbo;
+    if (aba !== 'nota') return false;
+    const flags = [];
+    for (let k = 0; k < entrada.orig.nota.length; k++) flags.push(await ehNotaFiscalDoc(entrada, 'nota', k));
+    return flags.some(Boolean) ? flags[i] : i === 0;
+  }
+  // todas as folhas de uma nota (nota/OS e pedido), com o carimbo onde deve ir
+  async function paginasDaNota(item, comLegenda) {
+    const docs = await buscarDocs(item);
+    const carimbo = carimboDe(item);
+    const paginas = [];
+    for (const aba of ['nota', 'pedido']) {
+      for (let i = 0; i < docs[aba].length; i++) {
+        const src = docs[aba][i];
+        const imgs = ehPdf(src) ? await pdfParaImagens(src) : [src];
+        const comCarimbo = carimbo && await deveCarimbar(docs, aba, i);
+        imgs.forEach(function(p, k) {
+          paginas.push({ src: p, carimbo: comCarimbo && k === 0 ? carimbo : null, legenda: comLegenda && !paginas.length ? legendaDe(item, false) : (comLegenda ? '' : undefined) });
+        });
+      }
+    }
+    return paginas;
+  }
 
   function buscarDocs(item) {
     if (cacheDocs[chaveItem(item)]) return Promise.resolve(cacheDocs[chaveItem(item)]);
@@ -1707,15 +1778,7 @@
     botao.disabled = true;
     botao.textContent = 'Preparando...';
     try {
-      const docs = await buscarDocs(item);
-      const carimbo = carimboDe(item);
-      const paginas = [];
-      for (const lista of [docs.nota, docs.pedido]) {
-        for (const src of lista) {
-          const imgs = ehPdf(src) ? await pdfParaImagens(src) : [src];
-          imgs.forEach(function(p) { paginas.push({ src: p, carimbo: lista === docs.nota && !paginas.length ? carimbo : null }); });
-        }
-      }
+      const paginas = await paginasDaNota(item, false);
       if (!paginas.length) { mostrarAviso('Os documentos da nota #' + item.id + ' já foram removidos do Drive.', false); return; }
       await imprimirPaginas(legendaDe(item, false), paginas);
       registrarImpressao(item);
@@ -1845,18 +1908,7 @@
       for (let k = 0; k < itens.length; k++) {
         botao.textContent = 'Preparando ' + (k + 1) + ' de ' + itens.length + '...';
         const item = itens[k];
-        const docs = await buscarDocs(item);
-        const carimbo = carimboDe(item);
-        let primeira = true;
-        for (const lista of [docs.nota, docs.pedido]) {
-          for (const src of lista) {
-            const imgs = ehPdf(src) ? await pdfParaImagens(src) : [src];
-            imgs.forEach(function(p) {
-              paginas.push({ src: p, carimbo: lista === docs.nota && primeira ? carimbo : null, legenda: primeira ? legendaDe(item, false) : '' });
-              primeira = false;
-            });
-          }
-        }
+        (await paginasDaNota(item, true)).forEach(function(p) { paginas.push(p); });
       }
       if (!paginas.length) { mostrarAviso('Os documentos dessas notas já foram removidos do Drive.', false); return; }
       await imprimirPaginas('', paginas);
@@ -2319,8 +2371,6 @@
     desativarBaixar();
     atualizarAbasDocs();
     if (!item.numFotos && !item.numPedido) { mostrarDocs(); return; }
-    verOriginal = false;
-    $('vistaOriginal').textContent = 'Ver original';
     if (cacheDocs[chaveItem(item)]) { docsAtuais = docsDaVista(cacheDocs[chaveItem(item)]); mostrarDocs(); precarregarProximos(item); return; }
     area.textContent = 'Carregando documentos...';
     google.script.run
@@ -2447,8 +2497,38 @@
     mostrarDoc(0);
   }
 
+  // estado dos botões "Tratar imagem" e "Carimbo" do documento aberto
+  async function atualizarBotoesDoc() {
+    const item = notaItem, entrada = item && cacheDocs[chaveItem(item)];
+    const bt = $('vistaTratar'), bc = $('vistaCarimbo');
+    if (!entrada || !entrada.orig[abaDoc][docIndice]) { bt.hidden = true; bc.hidden = true; return; }
+    const src = entrada.orig[abaDoc][docIndice];
+    bt.hidden = ehPdf(src);
+    bt.textContent = ajusteDe(entrada, abaDoc, docIndice).tratar ? '↩ Voltar ao original' : '✨ Tratar imagem';
+    bc.hidden = false;
+    const indice = docIndice, aba = abaDoc;
+    const com = await deveCarimbar(entrada, aba, indice);
+    if (indice !== docIndice || aba !== abaDoc) return;
+    bc.textContent = com ? '🔖 Com carimbo' : '🔖 Sem carimbo';
+    bc.title = (com ? 'Este documento sai com o carimbo. Clique para tirar.' : 'Este documento sai sem carimbo. Clique para carimbar.') + (ajusteDe(entrada, aba, indice).carimbo === undefined ? ' (escolha automática: carimbo nas notas fiscais)' : ' (escolhido pelo conferente)');
+    bc.classList.toggle('ativo-carimbo', com);
+  }
+  function salvarAjusteDoc(campo, valor) {
+    const item = notaItem, entrada = item && cacheDocs[chaveItem(item)];
+    if (!entrada) return;
+    const aba = abaDoc, indice = docIndice;
+    google.script.run.withSuccessHandler(async function(r) {
+      if (!r.ok) { mostrarAvisoNota(r.mensagem, false); return; }
+      entrada.ajustes = r.ajustes;
+      if (campo === 'tratar') { await montarVista(entrada); if (notaItem === item) { docsAtuais = entrada; mostrarDocs(); if (aba === abaDoc) mostrarDoc(indice); } }
+      else atualizarBotoesDoc();
+      mostrarAvisoNota(campo === 'tratar' ? (valor ? 'Imagem tratada ✓ (vale para a impressão)' : 'Voltou ao original ✓') : (valor ? 'Carimbo ligado neste documento ✓' : 'Carimbo desligado neste documento ✓'), true);
+    }).withFailureHandler(function(e) { mostrarAvisoNota('Não salvou: ' + e.message, false); }).salvarAjusteDocumento(item.id, aba, indice, campo, valor);
+  }
+
   function mostrarDoc(i) {
     docIndice = i;
+    setTimeout(atualizarBotoesDoc, 0);
     zerarVista();
     const src = docsAtuais[abaDoc][i];
     const area = $('fotoArea');
@@ -2507,7 +2587,8 @@
       return;
     }
     const item = notaItem;
-    const carimbo = abaDoc === 'nota' ? carimboDe(item) : null;
+    const entradaDoc = cacheDocs[chaveItem(item)];
+    const carimbo = entradaDoc && await deveCarimbar(entradaDoc, abaDoc, docIndice) ? carimboDe(item) : null;
     await imprimirPaginas(legendaDe(item, abaDoc === 'pedido'), paginas.map(function(p, k) { return { src: p, carimbo: k === 0 ? carimbo : null }; }));
     if (abaDoc === 'nota' && !item.conferido) registrarImpressao(item);
   }
@@ -3148,13 +3229,16 @@
   $('vistaMenos').onclick = function() { mudarZoom(-1); };
   $('vistaMais').onclick = function() { mudarZoom(1); };
   $('vistaAjustar').onclick = function() { zoomDoc = 1; aplicarZoom(); };
-  $('vistaOriginal').onclick = function() {
+  $('vistaTratar').onclick = function() {
     const entrada = notaItem && cacheDocs[chaveItem(notaItem)];
     if (!entrada) return;
-    verOriginal = !verOriginal;
-    $('vistaOriginal').textContent = verOriginal ? 'Ver tratado' : 'Ver original';
-    docsAtuais = docsDaVista(entrada);
-    mostrarDocs();
+    $('vistaTratar').textContent = 'Tratando...';
+    salvarAjusteDoc('tratar', !ajusteDe(entrada, abaDoc, docIndice).tratar);
+  };
+  $('vistaCarimbo').onclick = async function() {
+    const entrada = notaItem && cacheDocs[chaveItem(notaItem)];
+    if (!entrada) return;
+    salvarAjusteDoc('carimbo', !(await deveCarimbar(entrada, abaDoc, docIndice)));
   };
   window.addEventListener('resize', function() { if (!$('modalNota').hidden) aplicarZoom(); });
   $('vistaGirarEsq').onclick = function() { girarDoc(-90); };
