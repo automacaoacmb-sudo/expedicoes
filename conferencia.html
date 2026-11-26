@@ -1705,14 +1705,28 @@
       const lista = [];
       for (let i = 0; i < entrada.orig[aba].length; i++) {
         const src = entrada.orig[aba][i];
-        if (ajusteDe(entrada, aba, i).tratar && !ehPdf(src)) {
-          if (!entrada.tratados[aba + i]) entrada.tratados[aba + i] = await documentar(src);
+        if (ajusteDe(entrada, aba, i).tratar) {
+          if (!entrada.tratados[aba + i]) entrada.tratados[aba + i] = ehPdf(src) ? await tratarPdf(src) : await documentar(src);
           lista.push(entrada.tratados[aba + i]);
         } else lista.push(src);
       }
       entrada[aba] = lista;
     }
   }
+  // PDF (ex.: escaneado): trata cada página e monta um PDF novo com elas (o original continua guardado)
+  async function tratarPdf(src) {
+    const paginas = await pdfParaImagens(src);
+    const PDFLib = await carregarPdfLib();
+    const doc = await PDFLib.PDFDocument.create();
+    for (const p of paginas) {
+      const tratada = await documentar(p);
+      const img = await doc.embedJpg(bytesDe(tratada));
+      const pg = doc.addPage([img.width, img.height]);
+      pg.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    }
+    return 'data:application/pdf;base64,' + await doc.saveAsBase64();
+  }
+
   // é nota fiscal? (PDF com DANFE / NFS-e / chave de acesso; foto não dá para saber)
   async function ehNotaFiscalDoc(entrada, aba, i) {
     const k = aba + i;
@@ -2503,7 +2517,7 @@
     const bt = $('vistaTratar'), bc = $('vistaCarimbo');
     if (!entrada || !entrada.orig[abaDoc][docIndice]) { bt.hidden = true; bc.hidden = true; return; }
     const src = entrada.orig[abaDoc][docIndice];
-    bt.hidden = ehPdf(src);
+    bt.hidden = false;
     bt.textContent = ajusteDe(entrada, abaDoc, docIndice).tratar ? '↩ Voltar ao original' : '✨ Tratar imagem';
     bc.hidden = false;
     const indice = docIndice, aba = abaDoc;
@@ -2711,7 +2725,24 @@
         caixa.appendChild(linhaF);
         if (!a.situacao) { caixa.appendChild(criar('div', '', 'Ou envie para a fazenda responsável (ela confirma no portal):')); caixa.appendChild(criarTrocaFazenda(item, '')); }
       }
-      if (faltaNfOficina(item)) caixa.appendChild(criar('div', '', '📎 Falta a nota fiscal (veio só a OS): anexe em "📎 Anexar à nota" para poder dar baixa.'));
+      if (faltaNfOficina(item)) {
+        caixa.appendChild(criar('div', '', '📎 Falta a nota fiscal (veio só a OS): anexe em "📎 Anexar à nota" para poder dar baixa.'));
+        const jaTem = criar('button', 'botao-sec', '✓ A nota fiscal já está anexada');
+        jaTem.type = 'button';
+        jaTem.title = 'Use quando a nota fiscal já está entre os documentos desta nota (ex.: veio numa nota que foi juntada aqui)';
+        jaTem.onclick = function() {
+          if (!confirm('Confirma que a NOTA FISCAL da nota Nº ' + item.id + ' já está entre os documentos? Isso libera a baixa.')) return;
+          jaTem.disabled = true;
+          google.script.run.withSuccessHandler(function(r) {
+            if (!r.ok) { jaTem.disabled = false; mostrarAvisoNota(r.mensagem, false); return; }
+            substituirItem(r.item); desenhar();
+            const novo = dados.pendentes.filter(function(i) { return String(i.id) === String(r.item.id); })[0];
+            if (novo) { notaItem = novo; montarDadosNota(); montarDivergencia(novo); atualizarNavNota(); }
+            mostrarAvisoNota('Nota fiscal registrada ✓ — já pode dar baixa.', true);
+          }).withFailureHandler(function(e) { jaTem.disabled = false; mostrarAvisoNota('Erro: ' + e.message, false); }).definirComNf(item.id, item.linha);
+        };
+        caixa.appendChild(jaTem);
+      }
       return;
     }
     if (!item.conferido && item.etapa === 'Fazenda errada') {
